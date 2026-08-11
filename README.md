@@ -63,27 +63,39 @@ UniRouter — TS + Hono, one process, port 3402
 not guessed. `GET /models` reflects real-time availability (a live health
 check for the local model; a kill-switch check for everything else).
 
-| Model | Tier | Context | Price ($/1M tok, in / out) |
+Routing itself doesn't distinguish free vs. paid — a request is matched to
+exactly one model id in the table, full stop. The split below is
+informational (it mirrors the `tier` field each entry carries: `local`,
+`paid`, or `beta-free`), not a request-time parameter a caller can pass.
+
+### Free
+
+| Model | Provider | Context |
+|---|---|---|
+| `nvidia/nemotron-3-nano-30b-a3b` | NVIDIA beta-free | 128K |
+| `nvidia/nemotron-3-super-120b-a12b` | NVIDIA beta-free | 128K |
+
+### Paid — sorted by input price ($/1M tokens)
+
+| Model | Provider | Context | Price (in / out) |
 |---|---|---|---|
 | `openai/gpt-oss-20b` | local (own hardware) | 32K | $0.03 / $0.13 |
-| `gpt-5.5` | OpenAI | 1.05M | $5.00 / $30.00 |
-| `gpt-5.1` | OpenAI | 400K | $1.25 / $10.00 |
-| `gpt-5-mini` | OpenAI | 400K | $0.25 / $2.00 |
-| `claude-opus-5` | Anthropic | 1M | $5.00 / $25.00 |
-| `claude-sonnet-5` | Anthropic | 1M | $2.00 / $10.00 |
-| `claude-haiku-4-5` | Anthropic | 200K | $1.00 / $5.00 |
 | `deepseek-v4-flash` | DeepSeek | 1M | $0.14 / $0.28 |
-| `deepseek-v4-pro` | DeepSeek | 1M | $0.43 / $0.87 |
-| `qwen/qwen3.7-max` | OpenRouter | 1M | $1.48 / $4.42 |
-| `moonshotai/kimi-k3` | OpenRouter | 1.05M | $3.00 / $15.00 |
-| `z-ai/glm-5.2` | OpenRouter | 1.05M | $0.49 / $1.54 |
-| `grok-4.5` | xAI | 500K | $2.00 / $6.00 |
-| `grok-4.3` | xAI | 1M | $1.25 / $2.50 |
-| `gemini-3.1-pro-preview` | Google | 1.05M | $2.00 / $12.00 |
-| `gemini-3.6-flash` | Google | 1.05M | $1.50 / $7.50 |
+| `gpt-5-mini` | OpenAI | 400K | $0.25 / $2.00 |
 | `gemini-3.5-flash-lite` | Google | 1.05M | $0.30 / $2.50 |
-| `nvidia/nemotron-3-super-120b-a12b` | NVIDIA beta-free | 128K | Free |
-| `nvidia/nemotron-3-nano-30b-a3b` | NVIDIA beta-free | 128K | Free |
+| `deepseek-v4-pro` | DeepSeek | 1M | $0.43 / $0.87 |
+| `z-ai/glm-5.2` | OpenRouter | 1.05M | $0.49 / $1.54 |
+| `claude-haiku-4-5` | Anthropic | 200K | $1.00 / $5.00 |
+| `gpt-5.1` | OpenAI | 400K | $1.25 / $10.00 |
+| `grok-4.3` | xAI | 1M | $1.25 / $2.50 |
+| `qwen/qwen3.7-max` | OpenRouter | 1M | $1.48 / $4.42 |
+| `gemini-3.6-flash` | Google | 1.05M | $1.50 / $7.50 |
+| `claude-sonnet-5` | Anthropic | 1M | $2.00 / $10.00 |
+| `grok-4.5` | xAI | 500K | $2.00 / $6.00 |
+| `gemini-3.1-pro-preview` | Google | 1.05M | $2.00 / $12.00 |
+| `moonshotai/kimi-k3` | OpenRouter | 1.05M | $3.00 / $15.00 |
+| `gpt-5.5` | OpenAI | 1.05M | $5.00 / $30.00 |
+| `claude-opus-5` | Anthropic | 1M | $5.00 / $25.00 |
 
 Pricing on every non-local model is the provider's real cost, pass-through
 (`fee_bps` markup on top, currently `0`). Local pricing is a hybrid
