@@ -1,4 +1,4 @@
-# Inference Provider + x402 Router
+# UniRouter — Inference Provider + x402 Router
 
 Personal project (not a Monad Foundation project). Goal: run a real inference
 provider on my own hardware, wrap it in an x402 payment layer and a mini
