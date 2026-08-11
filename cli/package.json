@@ -1,0 +1,25 @@
+{
+  "name": "unirouter-cli",
+  "version": "0.1.1",
+  "description": "Pay UniRouter for inference with a wallet via x402 on Monad mainnet.",
+  "type": "module",
+  "bin": {
+    "unirouter-cli": "bin/unirouter-cli.js"
+  },
+  "files": [
+    "bin"
+  ],
+  "license": "MIT",
+  "author": "",
+  "keywords": [
+    "x402",
+    "monad",
+    "inference",
+    "agent-payments"
+  ],
+  "dependencies": {
+    "@x402/evm": "^2.21.0",
+    "@x402/fetch": "^2.21.0",
+    "viem": "^2.55.13"
+  }
+}

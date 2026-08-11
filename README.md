@@ -138,6 +138,22 @@ curl -i http://localhost:3402/paid/chat/completions \
 #   settled on retry once a caller attaches a signed payment.
 ```
 
+The easiest way to actually pay: [`unirouter-cli`](https://www.npmjs.com/package/unirouter-cli)
+(`cli/` in this repo) — signs and retries the 402 automatically from a
+wallet you hold:
+
+```bash
+npm install -g unirouter-cli
+export WALLET_PRIVATE_KEY=0x...   # needs real USDC + MON on Monad mainnet
+unirouter-cli chat "hello" --url http://localhost:3402
+```
+
+Verified end-to-end with a real (unfunded) wallet: the client signed and
+retried correctly, and the router's facilitator rejected it with a clean
+`insufficient_funds` error — the full protocol round-trip works on mainnet
+today, funding a wallet is the only thing separating that from an actual
+paid response.
+
 `network: "eip155:143"` (Monad mainnet), `asset` is USDC's real mainnet
 contract address, `payTo` is the operator's own wallet — all pulled from
 `@x402/evm`'s built-in Monad support and `router/src/config.ts`, nothing
@@ -163,8 +179,8 @@ the ecosystem actually is.
 |---|---|
 | **Serve** — vLLM Metal + gpt-oss-20b, OpenAI-compatible, streaming + usage tokens | ✅ done |
 | **Route** — one endpoint, 19 models, 8 upstream tiers, live health/rate-limit gating | ✅ done |
-| **Pay** — x402 + USDC on Monad mainnet, flat per-request pricing on the local model | ✅ live |
-| **Pay** — per-token/dynamic pricing, other EVM chains, wallet-native CLI client | 🚧 in progress |
+| **Pay** — x402 + USDC on Monad mainnet, flat per-request pricing, `unirouter-cli` client | ✅ live |
+| **Pay** — per-token/dynamic pricing, other EVM chains | 🚧 in progress |
 | **List** — feed.json entry on the Monad API Hub | ⬜ not started |
 
 The payment layer is the actual point of this project — everything above
