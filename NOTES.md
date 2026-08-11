@@ -540,11 +540,62 @@ argument didn't match the help-detection branch — worked fine as
 a scratch directory that the published tarball's bin symlink, shebang,
 and file permissions all survived intact.
 
+### First real settled payment — and a real upstream bug found (2026-08-12)
+
+Jeffui: fund a fresh agent wallet, test it against the local router, tell
+them how much is needed. Generated a new wallet
+(`0x0A1Fd8Fd01db4eC5a4982Ab9bbD26a09bec87E45`, key in `cli/.env`,
+gitignored) and reported back: only USDC needed, no MON — the facilitator
+covers settlement gas from its own relayer, confirmed later on-chain (see
+below). Suggested $1 USDC as a round, low-risk test amount ($0.0001/req ×
+10,000 requests). Jeffui sent it; confirmed arrival via a direct
+`eth_call` to `balanceOf` before attempting anything (no reason to trust
+a "sent" claim over checking the chain directly).
+
+First real attempt failed with `"error":"unexpected_error"` — different
+from the earlier `insufficient_funds` result, so genuinely new territory.
+Root-caused it as a real bug in `@x402/evm@2.21.0`: their hardcoded
+per-network token metadata declares Monad mainnet USDC's EIP-712 domain
+name as `"USD Coin"`. Verified via direct `eth_call`s to the deployed
+contract (`name()`, `version()`, `DOMAIN_SEPARATOR()`) that it's actually
+`"USDC"`. The x402 client (`ExactEvmScheme`) builds its signing domain
+from whatever `extra.name`/`extra.version` the *server* declares in the
+402 challenge (grepped the client bundle to confirm: `name:
+extra.name`) — so as long as our server declares the right name, the
+client automatically signs correctly, no client-side patch needed.
+
+**Fix**: `router/src/payment.ts` now calls
+`ExactEvmScheme().registerMoneyParser(...)`, overriding the declared
+`extra` for `eip155:143` to `{name: "USDC", version: "2"}` while keeping
+the correct asset address and amount conversion. No `node_modules`
+patching — this is a first-class extension point the library already
+exposes for exactly this kind of per-network override.
+
+**Verified for real, not just protocol-shape**: `unirouter-cli chat`
+against the live router with the funded wallet returned `HTTP 200` with
+actual local-model inference output and a `payment-response` header
+decoding to a real transaction hash
+(`0x8e2a5ca37f84d2ed8bde7119676175d9b78bbc57c33d2d530490bec336ae9d18`).
+Independently confirmed via `eth_getTransactionReceipt` (not just trusting
+the facilitator's claim): `status: success`, a `Transfer` event moving
+exactly 100 raw units ($0.0001) from the test wallet to `PAY_TO_ADDRESS`,
+`from` on the tx itself was the facilitator's relayer address (gas paid by
+them, not the payer, exactly as documented). Re-checked the wallet's
+on-chain balance after: `$0.9999`, down from `$1.0000` — matches to the
+cent. This is a fully closed loop: agent wallet → x402 challenge → signed
+authorization → facilitator-relayed settlement → real inference response,
+on Monad mainnet, with real USDC.
+
+Worth reporting upstream (not done yet, flagging as a possible next
+step): `x402-foundation/x402`'s Monad mainnet token metadata is wrong and
+would silently break any other integrator's first real payment the same
+way it broke ours.
+
 ### Not done yet
 
+- Reporting the `@x402/evm` domain-name bug upstream (GitHub issue) — not
+  done, would help other Monad integrators hit the same wall faster.
 - Other EVM chains beyond Monad — `CHAINS` table in `config.ts` is ready
   for it, no second entry added.
 - Per-token/dynamic pricing — blocked on the same body-visibility
   constraint noted above; no workaround attempted yet.
-- No real (funded) payment has been completed end-to-end. Everything
-  above is verified up to the point where real money would need to move.

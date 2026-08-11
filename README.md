@@ -144,15 +144,22 @@ wallet you hold:
 
 ```bash
 npm install -g unirouter-cli
-export WALLET_PRIVATE_KEY=0x...   # needs real USDC + MON on Monad mainnet
+export WALLET_PRIVATE_KEY=0x...   # needs real USDC on Monad mainnet (no MON —
+                                   # the facilitator pays settlement gas, not you)
 unirouter-cli chat "hello" --url http://localhost:3402
 ```
 
-Verified end-to-end with a real (unfunded) wallet: the client signed and
-retried correctly, and the router's facilitator rejected it with a clean
-`insufficient_funds` error — the full protocol round-trip works on mainnet
-today, funding a wallet is the only thing separating that from an actual
-paid response.
+**Verified with a real settled payment**, not just a protocol-shape check:
+funded a fresh wallet with $1 USDC, ran `unirouter-cli`, got back real
+inference output and a transaction hash. Independently confirmed on-chain
+via `eth_getTransactionReceipt` — a genuine `Transfer` event for exactly
+$0.0001 from the paying wallet to the operator's address, gas paid by the
+facilitator's relayer, not the payer. This surfaced (and we fixed) a real
+bug along the way: `@x402/evm`'s hardcoded Monad USDC metadata has the
+wrong EIP-712 domain name (`"USD Coin"` vs. the deployed contract's actual
+`"USDC"`), which silently breaks every signature until corrected — worked
+around server-side via a custom money parser, no fork needed. See
+`NOTES.md` for the full trace.
 
 `network: "eip155:143"` (Monad mainnet), `asset` is USDC's real mainnet
 contract address, `payTo` is the operator's own wallet — all pulled from

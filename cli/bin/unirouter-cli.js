@@ -18,9 +18,9 @@ Options:
 
 Environment:
   WALLET_PRIVATE_KEY   0x-prefixed private key for the paying wallet.
-                        This wallet needs real MON (gas) and real USDC
-                        on Monad mainnet — this is real money, not a
-                        testnet faucet.
+                        Needs real USDC on Monad mainnet — this is real
+                        money, not a testnet faucet. No MON needed: the
+                        facilitator pays settlement gas, not you.
 `);
 }
 
@@ -87,7 +87,7 @@ async function main() {
       const decoded = decodePaymentResponseHeader(paymentRequired);
       console.error(`payment failed: ${decoded.error ?? "unknown reason"}`);
       if (decoded.error === "insufficient_funds") {
-        console.error(`fund ${account.address} with USDC and MON on Monad mainnet, then retry.`);
+        console.error(`fund ${account.address} with USDC on Monad mainnet, then retry.`);
       }
     } else {
       console.error(`request failed: ${res.status} ${await res.text()}`);

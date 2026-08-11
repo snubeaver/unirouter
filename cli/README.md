@@ -7,13 +7,14 @@ on Monad mainnet.
 ```bash
 npm install -g unirouter-cli
 
-export WALLET_PRIVATE_KEY=0x...   # a wallet funded with real USDC + MON on Monad mainnet
+export WALLET_PRIVATE_KEY=0x...   # a wallet funded with real USDC on Monad mainnet
 
 unirouter-cli chat "hello" --url https://your-unirouter-instance.example
 ```
 
-The wallet needs to hold **real USDC** (to pay) and **real MON** (for gas)
-on Monad mainnet — this is not a testnet faucet flow. On a request:
+The wallet needs to hold **real USDC** on Monad mainnet — this is not a
+testnet faucet flow. You don't need MON for gas: the facilitator relays
+and pays for settlement. On a request:
 
 1. `unirouter-cli` calls the router's `/paid/chat/completions`.
 2. The router replies `402 Payment Required` with an exact price, asset,
