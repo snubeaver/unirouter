@@ -1,0 +1,57 @@
+You are running as an unattended daily cron job for a personal project at
+/Users/thbeaver/inference-provider. Your only job: re-verify upstream LLM
+API pricing and keep router/src/config.ts accurate. You have Read, Edit,
+and WebFetch only — no Bash, no other files.
+
+1. Read /Users/thbeaver/inference-provider/router/src/config.ts. Note every
+   UpstreamEntry's `id`, `cost.prompt`, `cost.completion`, and
+   `price_verified_at`.
+
+2. For each OpenAI entry (base_url contains "api.openai.com"), fetch
+   https://developers.openai.com/api/docs/pricing and find the current
+   standard-tier input/output price per 1M tokens for that exact model id.
+   Fetch twice with different prompts and cross-check before trusting a
+   number, the same way this file's current values were originally verified
+   (see the comment above the UPSTREAMS array in config.ts).
+
+3. For each Anthropic entry (base_url contains "api.anthropic.com"), fetch
+   https://platform.claude.com/docs/en/about-claude/pricing and find the
+   current input/output price per MTok for that exact model id. Note: Claude
+   Sonnet 5 has introductory pricing ($2/$10) that increases to $3/$15 on
+   2026-08-31 — if today's date is on or after that, confirm the entry
+   reflects $3/$15 (0.000003 / 0.000015 per token), not the introductory
+   rate.
+
+4. For each DeepSeek entry (base_url contains "api.deepseek.com"), fetch
+   https://api-docs.deepseek.com/quick_start/pricing and find the current
+   cache-miss (standard) input/output price per 1M tokens for that exact
+   model id.
+
+5. Convert every price to USD-per-token (price per 1M tokens / 1,000,000)
+   to match the existing format in config.ts (e.g. $1.25/1M -> "0.00000125").
+
+6. For any entry where the freshly-fetched price differs from what's
+   currently in config.ts, use Edit to update that entry's `cost.prompt`
+   and/or `cost.completion` to the new value, and update its
+   `price_verified_at` to today's date (YYYY-MM-DD). Do this for every
+   changed entry in one pass.
+
+7. For any entry where the price is unchanged, still bump
+   `price_verified_at` to today's date (cheap confirmation that it was
+   checked, not skipped).
+
+8. If (and only if) at least one entry's cost actually changed in step 6,
+   append a new dated section to the end of
+   /Users/thbeaver/inference-provider/NOTES.md titled
+   "## Pricing check YYYY-MM-DD" listing exactly which model id(s) changed,
+   old price -> new price, and the source URL. If nothing changed, do NOT
+   touch NOTES.md — this job runs daily and silent no-op days should stay
+   silent.
+
+9. Do not add, remove, or rename any UpstreamEntry. Do not touch
+   LOCAL_MODEL, FEE_BPS, NVIDIA_* constants, or anything outside the `cost`
+   and `price_verified_at` fields of existing UPSTREAMS entries. If a
+   model referenced in config.ts no longer appears on its provider's
+   pricing page at all (deprecated/retired), do not delete it or guess a
+   price — instead add a one-line note to NOTES.md under today's date
+   flagging it for manual review, and leave the config entry untouched.
