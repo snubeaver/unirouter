@@ -415,3 +415,93 @@ and tested-shaped since it was first added, just waiting on a key).
 **Router total: 19 models, all 19 now have a key configured** — every
 upstream entry in `config.ts` is active, no more `status: "disabled"`
 entries in `/models` due to a missing kill-switch env var.
+
+## Project renamed to UniRouter; committed and pushed (2026-08-12)
+
+First git history for this project. `git init` + first commit, then a
+rename pass: `CLAUDE.md` title, `router/package.json` name, and a new
+`README.md` (public-facing, structure loosely inspired by
+github.com/BlockRunAI/ClawRouter but content kept honest to actual status
+— no overclaiming x402 was live before it was). Repo:
+https://github.com/snubeaver/unirouter (Jeffui renamed it lowercase after
+I'd set the remote with mixed case; fixed via `git remote set-url`).
+
+Jeffui explicitly asked for commits authored as themselves
+(snubeaver/kwonij2@gmail.com), not with a Claude co-author line — set via
+`git config --local`, not global.
+
+README iteration, same day: split the model table into Free/Paid sections
+sorted by price (Jeffui pointed out routing itself doesn't actually
+distinguish free/paid at request time — it's model-id-only matching, the
+split is purely informational, and the README now says so explicitly).
+Also stripped all personal-machine framing ("Mac Studio," "my own
+hardware," "apartment") per Jeffui: "우리는 라우터야. 내거에 대해서
+중립적인 입장을 취해야해" (we're a router, need a neutral stance on what's
+ours) — reworded to "our own compute" service-voice instead, and to lean
+into the *cost* angle rather than the *ownership* angle per a follow-up
+("provided cheap by our machine" style) — e.g. the architecture diagram
+now reads "our own machine — the cheapest model in the table because of
+it" rather than describing whose hardware it is.
+
+## x402 payment gate shipped — Monad **mainnet**, not testnet (2026-08-12)
+
+Jeffui: "이제 x402 띄우면 되나?" (can we spin up x402 now?), then decided
+to skip testnet entirely: "바로 메인넷으로 갈거야" (going straight to
+mainnet). This is a real deviation from CLAUDE.md's Phase 2 text ("USDC on
+Monad testnet") and from CLAUDE.md's own "ask before spending real funds"
+rule — flagged explicitly at the time, user confirmed mainnet intent
+directly, and confirmed the receiving wallet address themselves
+(`0x1995159c8d4df2268A17C0169a80f0e7d11a7424`, in `router/.env` as
+`PAY_TO_ADDRESS`, not committed).
+
+### What's real (verified live, not just typechecked)
+
+- `POST /paid/chat/completions`: x402-gated via `@x402/hono` +
+  `@x402/evm`'s `ExactEvmScheme`, flat `$0.0001` per request, network
+  `eip155:143` (Monad mainnet). Called unauthenticated and got back a
+  correct `402` with a `payment-required` header decoding to: asset
+  `0x754704Bc059F8C67012fEd69BC8A327a5aafb603` (USDC on Monad mainnet —
+  cross-verified against Circle's own site, MonadScan, and Uniswap before
+  trusting it, then found the *exact same address* already hardcoded
+  inside `@x402/evm`'s source, which is about as confirmed as this gets
+  without a chain explorer query), `payTo` matching the configured
+  address, `amount: "100"` (100 raw units at USDC's 6 decimals = $0.0001,
+  correct). No actual payment has been made yet — that requires a funded
+  wallet and a signing client (the CLI, not started this session).
+- Regression-checked: `/models` (still 19) and the existing free
+  `/v1/chat/completions` path for the local model both still work
+  unaffected by adding the new gated route.
+
+### Real architectural finding: the middleware can't see the request body
+
+`@x402/hono`'s `DynamicPrice` callback receives an `HTTPRequestContext`
+with only `adapter` (exposing method/path/headers/URL), not the parsed
+JSON body. Since our API takes `model` and `max_tokens` in the body (to
+stay OpenAI-compatible), the payment layer structurally cannot price a
+shared route by those fields without either a non-standard request shape
+(e.g. duplicating them into query params for a price-lookup) or a
+separate pre-flight quote step. This is a concrete, load-bearing piece of
+evidence for CLAUDE.md's own thesis (item 3, streaming vs. prepay
+mismatch) — not a library limitation to route around quietly.
+
+**Decision** (Jeffui, given the tradeoff directly): ship flat per-request
+pricing for v1, scoped to the local model only, exactly matching the
+"proven" request-level settlement pattern CLAUDE.md already cites
+(BlockRun, cost+5%). Per-token/dynamic pricing and other EVM chains are
+explicitly future work, not solved here. `config.ts`'s `CHAINS` array
+holds one entry (Monad mainnet) but is structured as a table specifically
+so adding a second chain later is additive, not a rewrite of
+`payment.ts`.
+
+### Not done yet
+
+- CLI client (the actual point of asking for this — an agent that holds a
+  wallet, gets challenged with a 402, signs, and retries) — not started.
+  Needs a funded wallet with real MON (gas) and real USDC on Monad
+  mainnet before any end-to-end payment can be tested; no funds have been
+  moved.
+- `npm publish` for a CLI package — not attempted; not logged into npm
+  (`npm whoami` fails) and publishing claims a package name somewhat
+  permanently, so this needs an explicit go-ahead + package name decision
+  before it happens, not just a "sure go ahead" folded into a bigger ask.
+- Other EVM chains beyond Monad — table is ready, no second entry added.
