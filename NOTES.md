@@ -493,15 +493,58 @@ holds one entry (Monad mainnet) but is structured as a table specifically
 so adding a second chain later is additive, not a rewrite of
 `payment.ts`.
 
+### CLI client shipped and published (2026-08-12, same day)
+
+Jeffui provided their npm account (`snubeaver`), logged in via
+`npm login --auth-type=web` (browser device flow, same pattern as the
+earlier `gh auth login`).
+
+Built `cli/` — a standalone package, `unirouter-cli`, not part of the
+router's own package.json. Uses `@x402/fetch`'s
+`wrapFetchWithPaymentFromConfig` + `@x402/evm`'s `ExactEvmScheme` to sign
+and retry a 402 automatically from a wallet the caller controls (private
+key from `WALLET_PRIVATE_KEY` env var, never accepted as a CLI argument —
+avoids it landing in shell history). One command: `unirouter-cli chat
+<message> [--url] [--max-tokens]`.
+
+**Verified end-to-end, not just typechecked**: generated a throwaway
+private key with zero balance, ran `unirouter-cli chat "say pong"` against
+the live router. It correctly signed an EIP-3009
+`transferWithAuthorization` payment, retried the request, and the
+facilitator rejected it with `"error":"insufficient_funds"` — confirming
+the *entire* protocol round-trip (challenge → sign → retry → facilitator
+verify → clean rejection) works correctly on Monad mainnet. The only
+missing piece for an actual successful paid response is a wallet with
+real USDC + real MON for gas — no funds have been moved, this was
+deliberately tested with an empty wallet.
+
+**Publishing hit real npm account-security friction, not code issues**:
+1. First `npm publish` attempt: `403 ... Two-factor authentication or
+   granular access token with bypass 2fa enabled is required`. Jeffui's
+   npm account had no 2FA configured.
+2. Jeffui enabled 2FA — but as a phone passkey (WebAuthn/platform
+   authenticator), not a TOTP app. `npm publish --otp=<code>` has no code
+   to give it in that setup; passkey 2FA doesn't produce a numeric OTP.
+3. Resolved via a **granular access token** (npmjs.com → Settings →
+   Access Tokens → Granular Access Token, "Bypass two-factor
+   authentication for write requests" enabled) — set via
+   `npm config set //registry.npmjs.org/:_authToken <token>`. This is the
+   documented way to let CI/automation (or a passkey-only account) publish
+   without an interactive OTP prompt.
+
+Published `unirouter-cli@0.1.0`, then found and fixed a small argument
+-parsing bug (`unirouter-cli --help` as the very first, unaccompanied
+argument didn't match the help-detection branch — worked fine as
+`unirouter-cli chat --help` or bare `unirouter-cli help`, just not
+`--help` alone) and republished as `0.1.1`. Confirmed via `npm install` in
+a scratch directory that the published tarball's bin symlink, shebang,
+and file permissions all survived intact.
+
 ### Not done yet
 
-- CLI client (the actual point of asking for this — an agent that holds a
-  wallet, gets challenged with a 402, signs, and retries) — not started.
-  Needs a funded wallet with real MON (gas) and real USDC on Monad
-  mainnet before any end-to-end payment can be tested; no funds have been
-  moved.
-- `npm publish` for a CLI package — not attempted; not logged into npm
-  (`npm whoami` fails) and publishing claims a package name somewhat
-  permanently, so this needs an explicit go-ahead + package name decision
-  before it happens, not just a "sure go ahead" folded into a bigger ask.
-- Other EVM chains beyond Monad — table is ready, no second entry added.
+- Other EVM chains beyond Monad — `CHAINS` table in `config.ts` is ready
+  for it, no second entry added.
+- Per-token/dynamic pricing — blocked on the same body-visibility
+  constraint noted above; no workaround attempted yet.
+- No real (funded) payment has been completed end-to-end. Everything
+  above is verified up to the point where real money would need to move.
