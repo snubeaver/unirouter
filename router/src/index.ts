@@ -10,6 +10,7 @@ import { buildModelsResponse } from "./models.js";
 import { LOCAL_MODEL, UPSTREAMS, isUpstreamEnabled } from "./config.js";
 import { callAnthropic, translateAnthropicResponse, translateAnthropicStream } from "./providers/anthropic.js";
 import { checkRateLimit } from "./rate-limit.js";
+import { localModelPaymentMiddleware } from "./payment.js";
 
 const app = new Hono();
 
@@ -31,20 +32,35 @@ function proxyHeaders(upstream: Response): HeadersInit {
   return { "Content-Type": upstream.headers.get("content-type") ?? "application/json" };
 }
 
+async function proxyToLocal(body: unknown): Promise<Response> {
+  if (!(await isLocalHealthy())) {
+    return new Response(JSON.stringify({ error: { message: "local model unavailable" } }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  const upstream = await fetch(`${LOCAL_MODEL.base_url}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return new Response(upstream.body, { status: upstream.status, headers: proxyHeaders(upstream) });
+}
+
+// Payment-gated entry point: flat per-request USDC-on-Monad charge, always
+// serves the local model regardless of what `model` the caller passes —
+// this route's entire purpose is "pay for our own hardware," not routing.
+app.post("/paid/chat/completions", localModelPaymentMiddleware(), async (c) => {
+  const body = await c.req.json();
+  return proxyToLocal({ ...body, model: LOCAL_MODEL.id });
+});
+
 app.post("/v1/chat/completions", async (c) => {
   const body = await c.req.json();
   const modelId = body.model;
 
   if (modelId === LOCAL_MODEL.id) {
-    if (!(await isLocalHealthy())) {
-      return c.json({ error: { message: "local model unavailable" } }, 503);
-    }
-    const upstream = await fetch(`${LOCAL_MODEL.base_url}/v1/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    return new Response(upstream.body, { status: upstream.status, headers: proxyHeaders(upstream) });
+    return proxyToLocal(body);
   }
 
   const entry = UPSTREAMS.find((u) => u.id === modelId);

@@ -16,6 +16,35 @@ export const LOCAL_MODEL = {
   },
 } as const;
 
+// x402 settlement chains. Monad mainnet is the only one wired up today;
+// this is a table (not a single constant) on purpose — CLAUDE.md's stated
+// plan is "Monad first, other EVM chains later," so adding one is meant to
+// be a new entry here, not a rewrite of router/src/payment.ts.
+export interface ChainEntry {
+  id: `${string}:${string}`; // CAIP-2 network id, e.g. "eip155:143"
+  name: string;
+  facilitator_url: string;
+}
+
+export const CHAINS: ChainEntry[] = [
+  {
+    id: "eip155:143",
+    name: "Monad mainnet",
+    facilitator_url: "https://x402-facilitator.molandak.org",
+  },
+];
+
+export const DEFAULT_CHAIN = CHAINS[0];
+
+// USD price charged per request on the paid local endpoint (POST
+// /paid/chat/completions). Flat, request-level settlement — not per-token.
+// This isn't a shortcut: per CLAUDE.md, request-level x402 settlement is
+// the *proven* pattern (BlockRun does the same, cost+5%); token/chunk-level
+// settlement is the open problem this project exists to document, not
+// solve in v1. See NOTES.md for why the x402 middleware can't price
+// per-token here even if we wanted to (it can't see the request body).
+export const PAID_LOCAL_REQUEST_PRICE = "$0.0001";
+
 export type UpstreamTier = "local" | "beta-free" | "paid";
 export type ProviderFormat = "openai-compatible" | "anthropic-native";
 

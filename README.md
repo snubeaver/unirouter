@@ -2,21 +2,20 @@
 
 **Becoming an inference provider requires a wallet, not a company.**
 
-UniRouter is a personal, from-scratch inference router: one OpenAI-compatible
-endpoint in front of a GPU I own (running [vLLM](https://github.com/vllm-project/vllm)
-on Apple Silicon Metal) and 7 upstream API tiers, with per-request pricing
-and (in progress) [x402](https://github.com/x402-foundation/x402) payments
-so an autonomous agent can pay for inference with a wallet — no signup, no
-invoicing, no company required.
+UniRouter is a from-scratch inference router: one OpenAI-compatible endpoint
+in front of our own [vLLM](https://github.com/vllm-project/vllm) compute —
+kept cheap because it's ours, no margin stacked on top — plus 7 upstream API
+tiers, with per-request pricing and [x402](https://github.com/x402-foundation/x402)
+payments so an autonomous agent can pay for inference with a wallet — no
+signup, no invoicing, no company required.
 
-> **Status: experimental.** This is a solo project, not a Monad Foundation
-> product. Uptime is "one Mac Studio in someone's apartment." Read that as
-> the honest baseline it is, not a hedge.
+> **Status: experimental.** Not a Monad Foundation product. Read
+> "experimental" as the honest baseline it is, not a hedge.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Hono](https://img.shields.io/badge/Hono-E36002?logo=hono&logoColor=white)](https://hono.dev/)
 [![vLLM](https://img.shields.io/badge/vLLM-Metal-8A2BE2)](https://github.com/vllm-project/vllm)
-[![x402](https://img.shields.io/badge/x402-in%20progress-orange)](https://github.com/x402-foundation/x402)
+[![x402](https://img.shields.io/badge/x402-Monad%20mainnet-brightgreen)](https://github.com/x402-foundation/x402)
 [![status](https://img.shields.io/badge/status-experimental-yellow)]()
 
 ---
@@ -26,15 +25,16 @@ invoicing, no company required.
 OpenRouter-style aggregators are the incumbent model for "one endpoint, many
 models." But *becoming* a provider on them requires a legal entity, monthly
 invoicing, an application process, and sustained traffic. UniRouter is the
-other side of that argument: an individual with a GPU and a wallet address
-can list an endpoint, set a price, and get paid per request — today, on
-testnet, with real inference behind it.
+other side of that argument: anyone with compute and a wallet address can
+list an endpoint, set a price, and get paid per request — no intermediary
+account, no approval process.
 
 The router itself is deliberately dumb — no LiteLLM, no framework, one
 ~90-line request handler (`router/src/index.ts`) that matches a model id
 against a table and proxies. The interesting part isn't the routing logic;
-it's that the whole stack (compute, pricing, and eventually settlement)
-fits on one machine and one config file.
+it's that the whole stack (compute, pricing, and settlement) fits in one
+config file, regardless of who's operating it or what's behind the local
+endpoint.
 
 ## Architecture
 
@@ -44,14 +44,14 @@ Agent (pays via x402)
    ▼
 UniRouter — TS + Hono, one process, port 3402
    │
-   ├── localhost:8000 ── vLLM Metal serving gpt-oss-20b (my own hardware)
+   ├── localhost:8000 ── vLLM serving gpt-oss-20b (our own machine — the cheapest model in the table because of it)
    ├── OpenAI, Anthropic, DeepSeek, Grok, Gemini ── direct, paid
    ├── OpenRouter ── Qwen / Kimi / GLM
    └── NVIDIA build.nvidia.com ── beta-free tier (rate-capped, killable)
 ```
 
-- The router never loads a model. All real compute is the local vLLM
-  process or someone else's API.
+- The router never loads a model itself. All real compute is the local
+  vLLM process or an upstream provider's API.
 - Every upstream carries a `tier`, a `kill_switch` env var (pull a route in
   under 5 minutes with zero deploys), and a rate limit.
 - `fee_bps` — the markup UniRouter adds on top of pass-through cost — is a
@@ -79,7 +79,7 @@ informational (it mirrors the `tier` field each entry carries: `local`,
 
 | Model | Provider | Context | Price (in / out) |
 |---|---|---|---|
-| `openai/gpt-oss-20b` | local (own hardware) | 32K | $0.03 / $0.13 |
+| `openai/gpt-oss-20b` | our own machine | 32K | $0.03 / $0.13 |
 | `deepseek-v4-flash` | DeepSeek | 1M | $0.14 / $0.28 |
 | `gpt-5-mini` | OpenAI | 400K | $0.25 / $2.00 |
 | `gemini-3.5-flash-lite` | Google | 1.05M | $0.30 / $2.50 |
@@ -123,13 +123,48 @@ Any upstream without its API key set in `.env` shows up as
 `"status": "disabled"` in `/models` and 503s cleanly if called — nothing
 silently falls back to a different, possibly-paid model.
 
+## Paying for inference
+
+`POST /paid/chat/completions` is the payment-gated entry point — a flat
+$0.0001 USDC charge per request via [x402](https://github.com/x402-foundation/x402)
+on Monad mainnet, always serving the local model regardless of what `model`
+field a caller sends:
+
+```bash
+curl -i http://localhost:3402/paid/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role":"user","content":"hi"}], "max_tokens": 20}'
+# → HTTP 402, a `payment-required` header with the exact price/asset/payTo,
+#   settled on retry once a caller attaches a signed payment.
+```
+
+`network: "eip155:143"` (Monad mainnet), `asset` is USDC's real mainnet
+contract address, `payTo` is the operator's own wallet — all pulled from
+`@x402/evm`'s built-in Monad support and `router/src/config.ts`, nothing
+hardcoded by hand. This is deliberately flat-rate, not per-token: see
+"Why flat-rate" below.
+
+### Why flat-rate, not per-token
+
+The obvious "correct" design would price each request by its actual
+token usage. It doesn't work cleanly here: the x402 middleware decides the
+price *before* the request body is parsed (it only has access to the
+method/path/headers), so a route can't price itself dynamically off
+`model` or `max_tokens` without either a second network round-trip or a
+non-standard request shape. Request-level flat pricing is also the
+*proven* pattern in production x402 usage today (e.g. BlockRun settles at
+cost+5% per request); token/chunk-level settlement is the open problem.
+Flat-rate here isn't a shortcut — it's the accurate reflection of where
+the ecosystem actually is.
+
 ## What's real vs. what's next
 
 | Phase | Status |
 |---|---|
 | **Serve** — vLLM Metal + gpt-oss-20b, OpenAI-compatible, streaming + usage tokens | ✅ done |
 | **Route** — one endpoint, 19 models, 8 upstream tiers, live health/rate-limit gating | ✅ done |
-| **Pay** — x402 middleware, USDC on Monad testnet, wallet-native client | 🚧 in progress |
+| **Pay** — x402 + USDC on Monad mainnet, flat per-request pricing on the local model | ✅ live |
+| **Pay** — per-token/dynamic pricing, other EVM chains, wallet-native CLI client | 🚧 in progress |
 | **List** — feed.json entry on the Monad API Hub | ⬜ not started |
 
 The payment layer is the actual point of this project — everything above
