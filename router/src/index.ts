@@ -7,10 +7,10 @@ try {
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { buildModelsResponse } from "./models.js";
-import { LOCAL_MODEL, UPSTREAMS, isUpstreamEnabled } from "./config.js";
+import { LOCAL_MODEL, UPSTREAMS, UpstreamEntry, isUpstreamEnabled } from "./config.js";
 import { callAnthropic, translateAnthropicResponse, translateAnthropicStream } from "./providers/anthropic.js";
 import { checkRateLimit } from "./rate-limit.js";
-import { localModelPaymentMiddleware } from "./payment.js";
+import { PAYABLE_MODELS, paidModelsPaymentMiddleware } from "./payment.js";
 
 const app = new Hono();
 
@@ -47,31 +47,18 @@ async function proxyToLocal(body: unknown): Promise<Response> {
   return new Response(upstream.body, { status: upstream.status, headers: proxyHeaders(upstream) });
 }
 
-// Payment-gated entry point: flat per-request USDC-on-Monad charge, always
-// serves the local model regardless of what `model` the caller passes —
-// this route's entire purpose is "pay for our own hardware," not routing.
-app.post("/paid/chat/completions", localModelPaymentMiddleware(), async (c) => {
-  const body = await c.req.json();
-  return proxyToLocal({ ...body, model: LOCAL_MODEL.id });
-});
-
-app.post("/v1/chat/completions", async (c) => {
-  const body = await c.req.json();
-  const modelId = body.model;
-
-  if (modelId === LOCAL_MODEL.id) {
-    return proxyToLocal(body);
-  }
-
-  const entry = UPSTREAMS.find((u) => u.id === modelId);
-  if (!entry) {
-    return c.json({ error: { message: `unknown model: ${modelId}` } }, 404);
-  }
+async function proxyToUpstream(entry: UpstreamEntry, body: any): Promise<Response> {
   if (!isUpstreamEnabled(entry)) {
-    return c.json({ error: { message: `model ${modelId} not configured (missing ${entry.kill_switch})` } }, 503);
+    return new Response(
+      JSON.stringify({ error: { message: `model ${entry.id} not configured (missing ${entry.kill_switch})` } }),
+      { status: 503, headers: { "Content-Type": "application/json" } },
+    );
   }
   if (!checkRateLimit(entry.shared_rate_limit_key ?? entry.id, entry.rate_limit_rpm)) {
-    return c.json({ error: { message: "rate limit exceeded" } }, 429);
+    return new Response(JSON.stringify({ error: { message: "rate limit exceeded" } }), {
+      status: 429,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const apiKey = process.env[entry.kill_switch]!;
@@ -94,12 +81,61 @@ app.post("/v1/chat/completions", async (c) => {
   const upstream = await callAnthropic(entry.base_url, apiKey, body);
   if (!upstream.ok) {
     const errText = await upstream.text();
-    return c.json({ error: { message: errText } }, upstream.status as any);
+    return new Response(JSON.stringify({ error: { message: errText } }), {
+      status: upstream.status,
+      headers: { "Content-Type": "application/json" },
+    });
   }
   if (body.stream) {
-    return translateAnthropicStream(upstream, modelId);
+    return translateAnthropicStream(upstream, entry.id);
   }
-  return c.json(await translateAnthropicResponse(upstream, modelId));
+  return new Response(JSON.stringify(await translateAnthropicResponse(upstream, entry.id)), {
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+// Payment-gated entry point: every paid model (local hardware and every
+// paid upstream) lives here, one flat-priced route per model slug. See
+// payment.ts for how each price is derived and NOTES.md for why this
+// exists — /v1/chat/completions used to serve every model, including
+// paid upstreams, for free, which meant real API credits were being spent
+// on unauthenticated traffic.
+app.use("/paid/*", paidModelsPaymentMiddleware());
+app.post("/paid/:slug/chat/completions", async (c) => {
+  const slug = c.req.param("slug");
+  const model = PAYABLE_MODELS.find((m) => m.slug === slug);
+  if (!model) {
+    return c.json({ error: { message: `unknown or unpayable model slug: ${slug}` } }, 404);
+  }
+  const body = await c.req.json();
+  if (!model.entry) {
+    return proxyToLocal({ ...body, model: LOCAL_MODEL.id });
+  }
+  return proxyToUpstream(model.entry, { ...body, model: model.id });
+});
+
+// Open, unauthenticated route — deliberately restricted to `beta-free`
+// models only. There's no real cost to protect on those, so payment
+// friction would be pointless; everything else (local hardware, every
+// paid upstream) must go through /paid/<slug>/chat/completions instead.
+app.post("/v1/chat/completions", async (c) => {
+  const body = await c.req.json();
+  const modelId = body.model;
+
+  const payable = PAYABLE_MODELS.find((m) => m.id === modelId);
+  if (payable) {
+    return c.json(
+      { error: { message: `${modelId} requires payment — use POST /paid/${payable.slug}/chat/completions` } },
+      402,
+    );
+  }
+
+  const entry = UPSTREAMS.find((u) => u.id === modelId);
+  if (!entry) {
+    return c.json({ error: { message: `unknown model: ${modelId}` } }, 404);
+  }
+
+  return proxyToUpstream(entry, body);
 });
 
 const port = 3402;

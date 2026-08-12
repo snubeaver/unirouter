@@ -45,6 +45,30 @@ export const DEFAULT_CHAIN = CHAINS[0];
 // per-token here even if we wanted to (it can't see the request body).
 export const PAID_LOCAL_REQUEST_PRICE = "$0.0001";
 
+// URL-safe, single-segment identifier for a model id (many ids contain
+// "/", e.g. "qwen/qwen3.7-max", which can't be a raw path segment).
+export function toSlug(id: string): string {
+  return id.replace(/\//g, "-");
+}
+
+// Every paid (non-local, non-beta-free) upstream is gated behind x402 too
+// — the free `/v1/chat/completions` route only ever covers `beta-free`
+// entries and the payment-gated local model, on purpose: leaving paid
+// upstreams open would mean spending real API credits on unpaid traffic.
+// Since the payment layer can't see the request body (see payment.ts),
+// each paid upstream gets a flat "prepay-max" price: assume a fixed
+// prompt/completion token count and charge for that up front. This is a
+// deliberately conservative approximation, not a precise per-request
+// cost — a request with a much larger max_tokens than assumed here is
+// still undercharged. Tightening this is future work (see README).
+export const PREPAY_ASSUMED_PROMPT_TOKENS = 500;
+export const PREPAY_ASSUMED_COMPLETION_TOKENS = 1000;
+
+export function prepayMaxPriceUsd(cost: { prompt: string; completion: string }): number {
+  const raw = Number(cost.prompt) * PREPAY_ASSUMED_PROMPT_TOKENS + Number(cost.completion) * PREPAY_ASSUMED_COMPLETION_TOKENS;
+  return raw * (1 + FEE_BPS / 10_000);
+}
+
 export type UpstreamTier = "local" | "beta-free" | "paid";
 export type ProviderFormat = "openai-compatible" | "anthropic-native";
 

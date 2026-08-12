@@ -14,6 +14,8 @@ on the command line, it ends up in your shell history.
 
 Options:
   --url <url>          Router base URL (default: http://localhost:3402)
+  --model <slug>       Model slug to pay for, from GET <url>/models
+                        (default: openai-gpt-oss-20b, the local model)
   --max-tokens <n>     Max tokens to request (default: 200)
 
 Environment:
@@ -25,11 +27,12 @@ Environment:
 }
 
 function parseArgs(argv) {
-  const args = { url: "http://localhost:3402", maxTokens: 200 };
+  const args = { url: "http://localhost:3402", model: "openai-gpt-oss-20b", maxTokens: 200 };
   const rest = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--url") args.url = argv[++i];
+    else if (a === "--model") args.model = argv[++i];
     else if (a === "--max-tokens") args.maxTokens = Number(argv[++i]);
     else if (a === "--help" || a === "-h") args.help = true;
     else rest.push(a);
@@ -72,7 +75,7 @@ async function main() {
     schemes: [{ network: MONAD_MAINNET, client: new ExactEvmScheme(account) }],
   });
 
-  const res = await fetchWithPayment(`${args.url}/paid/chat/completions`, {
+  const res = await fetchWithPayment(`${args.url}/paid/${args.model}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

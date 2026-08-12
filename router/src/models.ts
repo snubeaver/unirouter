@@ -1,4 +1,12 @@
-import { FEE_BPS, LOCAL_MODEL, UPSTREAMS, isUpstreamEnabled } from "./config.js";
+import { FEE_BPS, LOCAL_MODEL, PAID_LOCAL_REQUEST_PRICE, UPSTREAMS, isUpstreamEnabled, prepayMaxPriceUsd } from "./config.js";
+import { PAYABLE_MODELS } from "./payment.js";
+
+function paymentInfo(modelId: string) {
+  const payable = PAYABLE_MODELS.find((m) => m.id === modelId);
+  if (!payable) return null; // beta-free: served free on /v1/chat/completions
+  const price_usd = payable.entry ? prepayMaxPriceUsd(payable.entry.cost!) : Number(PAID_LOCAL_REQUEST_PRICE.slice(1));
+  return { endpoint: `/paid/${payable.slug}/chat/completions`, price_usd, note: "flat prepay-max, not per-token" };
+}
 
 async function isLocalHealthy(): Promise<boolean> {
   try {
@@ -27,6 +35,7 @@ export async function buildModelsResponse() {
       pricing: LOCAL_MODEL.pricing, // fixed schedule, not subject to fee_bps
       top_provider: { tier: "local" },
       status: localAvailable ? "available" : "unavailable",
+      payment: paymentInfo(LOCAL_MODEL.id),
     },
     ...UPSTREAMS.map((u) => {
       const enabled = isUpstreamEnabled(u);
@@ -39,6 +48,7 @@ export async function buildModelsResponse() {
           : null,
         top_provider: { tier: u.tier, rate_limit_rpm: u.rate_limit_rpm },
         status: enabled ? "available" : "disabled",
+        payment: paymentInfo(u.id),
       };
     }),
   ];
