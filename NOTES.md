@@ -657,3 +657,23 @@ Regression-checked: `nvidia/nemotron-3-nano-30b-a3b` still works
 unauthenticated on `/v1/chat/completions` (200), `gpt-5-mini` on the same
 route now correctly 402s instead of running for free, `/models` still
 reports all 19 entries.
+
+## Upstream fixed the USDC domain bug; workaround removed (2026-08-12)
+
+The `@x402/evm` bug we worked around on 2026-08-12 (Monad USDC EIP-712
+domain name shipped as `"USD Coin"`, contract says `"USDC"`) is fixed
+upstream in `@x402/evm@2.22.0` (x402-foundation/x402 PR #3105, merged
+2026-08-10). Verified the published npm tarball actually carries the fix
+(`name: "USDC"` for `eip155:143` in the bundled default-asset table)
+before trusting the changelog.
+
+Changes: bumped `@x402/{core,evm,hono}` to `^2.22.0` and deleted the
+`registerMoneyParser` override in `router/src/payment.ts` — the built-in
+Monad entry now declares the correct domain, so the 402 challenge is
+right without us overriding anything. A short comment in `payment.ts`
+pins why the version floor matters (older versions break every
+settlement, silently).
+
+Caveat: the legacy v1 tables in the Go and Python SDKs still carry
+`"USD Coin"` — irrelevant here (this router is TS + v2 protocol), fix
+raised separately against upstream.
