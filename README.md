@@ -1,13 +1,11 @@
 # UniRouter
 
-**Becoming an inference provider requires a wallet, not a company.**
+**An inference router for anyone who can pay via x402.**
 
 UniRouter is an OpenAI-compatible inference router: one endpoint in front of
 a local [vLLM](https://github.com/vllm-project/vllm) backend and seven
 upstream providers, priced per request and paid for via
-[x402](https://github.com/x402-foundation/x402) on Monad mainnet. No
-signup, no invoicing, no account approval — a wallet is the only
-credential a caller needs.
+[x402](https://github.com/x402-foundation/x402) on Monad mainnet.
 
 > **Status: experimental.** Not a Monad Foundation product.
 
