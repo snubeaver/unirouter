@@ -95,11 +95,8 @@ async function proxyToUpstream(entry: UpstreamEntry, body: any): Promise<Respons
 }
 
 // Payment-gated entry point: every paid model (local hardware and every
-// paid upstream) lives here, one flat-priced route per model slug. See
-// payment.ts for how each price is derived and NOTES.md for why this
-// exists — /v1/chat/completions used to serve every model, including
-// paid upstreams, for free, which meant real API credits were being spent
-// on unauthenticated traffic.
+// paid upstream) has its own flat-priced route by slug. See payment.ts
+// for price derivation.
 app.use("/paid/*", paidModelsPaymentMiddleware());
 app.post("/paid/:slug/chat/completions", async (c) => {
   const slug = c.req.param("slug");

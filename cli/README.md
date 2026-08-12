@@ -40,11 +40,8 @@ unirouter-cli chat <message> [--url <url>] [--model <slug>] [--max-tokens <n>]
 - `--model` — model slug from that instance's `/models` (default `openai-gpt-oss-20b`)
 - `--max-tokens` — default `200`
 
-## Why flat, prepay-max pricing
+## Pricing
 
-Today's charge is a flat per-request amount, not per-token — the x402
-payment layer decides price before it can see your request body, so it
-can't price by exact token count. Non-local models are charged a
-conservative flat estimate (prepay-max) instead. See
-[unirouter's README](https://github.com/snubeaver/unirouter#why-flat-rate-not-per-token)
-for the actual reason.
+Charges are flat per request, not per-token — see
+[unirouter's README](https://github.com/snubeaver/unirouter#pricing) for
+the pricing model.

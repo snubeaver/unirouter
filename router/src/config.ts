@@ -36,13 +36,9 @@ export const CHAINS: ChainEntry[] = [
 
 export const DEFAULT_CHAIN = CHAINS[0];
 
-// USD price charged per request on the paid local endpoint (POST
-// /paid/chat/completions). Flat, request-level settlement — not per-token.
-// This isn't a shortcut: per CLAUDE.md, request-level x402 settlement is
-// the *proven* pattern (BlockRun does the same, cost+5%); token/chunk-level
-// settlement is the open problem this project exists to document, not
-// solve in v1. See NOTES.md for why the x402 middleware can't price
-// per-token here even if we wanted to (it can't see the request body).
+// Flat per-request price for the local model's paid endpoint. Not
+// per-token: the payment layer authorizes a charge before the request
+// body is parsed, so pricing can't depend on `model` or `max_tokens`.
 export const PAID_LOCAL_REQUEST_PRICE = "$0.0001";
 
 // URL-safe, single-segment identifier for a model id (many ids contain
@@ -51,16 +47,10 @@ export function toSlug(id: string): string {
   return id.replace(/\//g, "-");
 }
 
-// Every paid (non-local, non-beta-free) upstream is gated behind x402 too
-// — the free `/v1/chat/completions` route only ever covers `beta-free`
-// entries and the payment-gated local model, on purpose: leaving paid
-// upstreams open would mean spending real API credits on unpaid traffic.
-// Since the payment layer can't see the request body (see payment.ts),
-// each paid upstream gets a flat "prepay-max" price: assume a fixed
-// prompt/completion token count and charge for that up front. This is a
-// deliberately conservative approximation, not a precise per-request
-// cost — a request with a much larger max_tokens than assumed here is
-// still undercharged. Tightening this is future work (see README).
+// Prepay-max pricing for paid upstreams: charge as if every request uses
+// this many prompt/completion tokens, since the payment layer can't see
+// actual usage before authorizing a charge. Conservative, not exact — a
+// request with much larger `max_tokens` is still undercharged.
 export const PREPAY_ASSUMED_PROMPT_TOKENS = 500;
 export const PREPAY_ASSUMED_COMPLETION_TOKENS = 1000;
 
@@ -318,29 +308,22 @@ export const UPSTREAMS: UpstreamEntry[] = [
     cost: { prompt: "0.0000003", completion: "0.0000025" },
     price_verified_at: "2026-08-11",
   },
-  // NVIDIA build.nvidia.com catalog — beta-free tier, see CLAUDE.md
-  // "Upstream constraints". Model IDs pulled live from
-  // `GET https://integrate.api.nvidia.com/v1/models` on 2026-08-12 (real
-  // API call, not a third-party listing) and filtered by hand to actual
+  // NVIDIA build.nvidia.com catalog, beta-free tier. Restricted to actual
   // chat/instruct models — the catalog also lists embedding, reranker,
   // safety-guard, translation, and parsing models that don't work against
-  // /v1/chat/completions, and those are deliberately excluded.
+  // /v1/chat/completions.
   //
-  // Deliberately NOT added: "openai/gpt-oss-20b" IS in this free catalog,
-  // but that id collides with LOCAL_MODEL — routing it here would mean
-  // silently serving our own paid model's requests off NVIDIA's free dev
-  // tier instead of our own hardware, which is both a likely ToS violation
-  // (their free tier is dev/beta/eval only, not for serving paying traffic)
-  // and directly contradicts this project's whole premise of running real
-  // inference on our own hardware. Left out on purpose, not an oversight.
+  // "openai/gpt-oss-20b" is also in this catalog but is not routed here:
+  // it collides with LOCAL_MODEL's id, and serving our own model's
+  // requests off NVIDIA's free dev tier would violate that tier's terms
+  // (dev/eval only, not for production traffic) and contradict running
+  // inference on our own hardware.
   //
-  // All entries share ONE 20 RPM pool (`shared_rate_limit_key`) per
-  // CLAUDE.md's self-imposed cap — NVIDIA's own key-wide ceiling is ~40 RPM;
-  // never approach that from our side. `cost: null` since it's free;
-  // context_length values not exposed by NVIDIA's /v1/models (no pricing/
-  // spec metadata in that response) — filled in from each model's own
-  // public model card / general knowledge, not independently re-verified
-  // the way the paid upstreams' pricing was.
+  // All entries share one 20 RPM pool (`shared_rate_limit_key`) — NVIDIA's
+  // own key-wide ceiling is ~40 RPM, never approach that. `cost: null`
+  // since it's free; context_length is not exposed by NVIDIA's
+  // /v1/models, so it's taken from each model's public card rather than
+  // independently verified the way paid-upstream pricing is.
   {
     id: "nvidia/nemotron-3-super-120b-a12b",
     tier: "beta-free",
@@ -365,34 +348,23 @@ export const UPSTREAMS: UpstreamEntry[] = [
     cost: null,
     price_verified_at: "2026-08-12",
   },
-  // Jeffui: keep this list tight ("나머지 지원하는거 좀 오바임") — only these
-  // two, both fast/reliable in testing. meta/llama-3.3-70b-instruct (~73s),
-  // meta/llama-3.1-70b-instruct, and minimaxai/minimax-m3 (~36s) all worked
-  // but were cut for being slow/unnecessary breadth, not for being broken.
+  // These two are the only NVIDIA models kept in the catalog: fast and
+  // reliable. Other candidates tried and rejected — do not re-add without
+  // re-verifying: meta/llama-3.3-70b-instruct, meta/llama-3.1-70b-instruct,
+  // minimaxai/minimax-m3 (all worked but were 36-73s per request, too slow
+  // for this catalog's purpose); mistralai/mistral-large-2-instruct,
+  // nvidia/llama-3.1-nemotron-ultra-253b-v1, moonshotai/kimi-k2.6,
+  // 01-ai/yi-large (404 "Function not found for account" — listed in the
+  // catalog but not provisioned on this account); deepseek-ai/deepseek-v4-flash-0731,
+  // z-ai/glm-5.2 (hung 30-300s before failing, even called directly against
+  // NVIDIA, bypassing this router).
   //
-  // z-ai/glm-5.2 also exists as a paid entry via OpenRouter above, same id.
-  // Suffixed ":free" (OpenRouter's own convention for free-tier variants,
-  // reused here on purpose so it's a familiar pattern) so a caller can
-  // explicitly request the free NVIDIA path and always get it — without
-  // the suffix, `UPSTREAMS.find` would return whichever entry is listed
-  // first, which is exactly the bug that shipped initially (the free
-  // entry was unreachable, silently shadowed by the paid one). NOTE:
-  // z-ai/glm-5.2:free was originally added here with the fix above, but
-  // pulled again minutes later — a direct call to NVIDIA (bypassing our
-  // router) for z-ai/glm-5.2 hung for 301 seconds before failing outright
-  // ("fetch failed"). GLM is only offered via the OpenRouter paid entry
-  // now; `upstream_model_id` (the mechanism this fix introduced) stays in
-  // the type for the next time an id needs a `:free`-style public alias.
-  //
-  // Confirmed NOT usable on this NVIDIA account as of 2026-08-12 — kept out
-  // rather than added-then-silently-broken:
-  // mistralai/mistral-large-2-instruct, nvidia/llama-3.1-nemotron-ultra-253b-v1,
-  // moonshotai/kimi-k2.6, 01-ai/yi-large all returned HTTP 404
-  // "Function ... Not found for account" (listed in the catalog but not
-  // actually provisioned for this key). deepseek-ai/deepseek-v4-flash-0731
-  // and z-ai/glm-5.2 both hung for 30s-300s before erroring, even called
-  // directly against NVIDIA — worse than a clean 404, so excluded rather
-  // than left in to intermittently hang real requests.
+  // Note: z-ai/glm-5.2 also exists as a paid OpenRouter entry above under
+  // the same base id. If a free variant of an id that also has a paid
+  // entry is ever added, give it a distinct id with a ":free" suffix
+  // (OpenRouter's own convention) and set `upstream_model_id` to the real
+  // upstream id — `UPSTREAMS.find` matches the first id it sees, so two
+  // entries sharing one id makes the second unreachable.
 ];
 
 
