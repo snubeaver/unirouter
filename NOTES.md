@@ -599,3 +599,61 @@ way it broke ours.
   for it, no second entry added.
 - Per-token/dynamic pricing — blocked on the same body-visibility
   constraint noted above; no workaround attempted yet.
+
+## Revenue leak found and fixed: every paid upstream was free to call (2026-08-12)
+
+Jeffui, after asking whether Claude payment had been tested and learning
+it hadn't (the paid route only ever covered the local model): "뭐하는
+짓이야. 다른 모델들을 그럼 내가 공짜로 애들한테 제공하고 있다고?
+당연히 먼저 402로 내가 돈 받고 인퍼런스 해줘야지" (what are you doing —
+so I'm giving the other models away for free? Obviously I should get paid
+via 402 before doing inference). Correct and overdue: `/v1/chat/completions`
+had been open, unauthenticated, and serving *every* model including every
+paid upstream (Claude, GPT-5, Grok, Gemini, DeepSeek, OpenRouter) this
+entire session — real API credits spent with zero compensation, the exact
+opposite of the project's premise.
+
+**Fix, same session**:
+- Added `toSlug()` (model id with `/` → `-`, since ids like
+  `qwen/qwen3.7-max` can't be a raw URL path segment) and
+  `prepayMaxPriceUsd()` (assume `PREPAY_ASSUMED_PROMPT_TOKENS` (500) +
+  `PREPAY_ASSUMED_COMPLETION_TOKENS` (1000), charge for that) to
+  `config.ts`.
+- `payment.ts` now builds one x402-gated route per payable model —
+  `POST /paid/<slug>/chat/completions` — generated from `LOCAL_MODEL` +
+  every `tier: "paid"` upstream, each with its own static price (no
+  `DynamicPrice`/path-parsing needed since prices are known at startup).
+- `index.ts`: `/v1/chat/completions` now checks `PAYABLE_MODELS` first —
+  any payable model (local or paid upstream) gets a `402` pointing at the
+  correct `/paid/<slug>` endpoint instead of being served. Only
+  `beta-free` models (the two NVIDIA ones) still work on the open route,
+  since there's no real cost to protect there.
+- Refactored the upstream-dispatch logic (rate-limit check, kill-switch
+  check, openai-compatible vs. anthropic-native branching) out of the old
+  single handler into `proxyToUpstream()`, shared by both the free
+  (beta-free-only) and paid routes — avoided duplicating that logic
+  across two call sites.
+- `/models` gained a `payment` field per model (`endpoint` + `price_usd`)
+  so a caller can discover the right route instead of guessing the slug
+  format.
+- `unirouter-cli`: added `--model <slug>` (defaults to
+  `openai-gpt-oss-20b`) so it can target any payable model, not just
+  local. Published as `0.1.3`, then `0.1.4` for a docs-only README fix.
+
+**Verified for real — paid for Claude specifically, since that's the
+model that triggered this**: `unirouter-cli chat "..." --model
+claude-haiku-4-5-20251001` against the live router. Got a real "pong" and
+a settled transaction
+(`0xc02026ba25aaf81ab9a17e01b702a8cae55a826aef79475905e8ec72845cbef4`).
+Confirmed independently via `eth_getTransactionReceipt`: `status:
+success`, a `Transfer` event for exactly 5500 raw units ($0.0055) —
+matches `prepayMaxPriceUsd` for Claude Haiku's cost
+(`0.000001×500 + 0.000005×1000 = 0.0055`) exactly. Also re-verified the
+Monad USDC domain-name fix from the earlier local-only test still applies
+here (same `monadUsdcScheme` money-parser override, now shared across all
+payable models via one `x402ResourceServer` registration).
+
+Regression-checked: `nvidia/nemotron-3-nano-30b-a3b` still works
+unauthenticated on `/v1/chat/completions` (200), `gpt-5-mini` on the same
+route now correctly 402s instead of running for free, `/models` still
+reports all 19 entries.
