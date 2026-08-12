@@ -175,12 +175,13 @@ paid $0.0001 for the local model and $0.0055 for `claude-haiku-4-5` in
 separate runs, both got back real inference output and a transaction
 hash. Independently confirmed on-chain via `eth_getTransactionReceipt`
 for both — genuine `Transfer` events for the exact charged amount, gas
-paid by the facilitator's relayer, not the payer. This surfaced (and we
-fixed) a real bug along the way: `@x402/evm`'s hardcoded Monad USDC
-metadata has the wrong EIP-712 domain name (`"USD Coin"` vs. the deployed
-contract's actual `"USDC"`), which silently breaks every signature until
-corrected — worked around server-side via a custom money parser, no fork
-needed. See `NOTES.md` for the full trace on both incidents.
+paid by the facilitator's relayer, not the payer. This surfaced a real
+upstream bug along the way: `@x402/evm` (< 2.22.0) hardcoded the wrong
+EIP-712 domain name for Monad USDC (`"USD Coin"` vs. the deployed
+contract's actual `"USDC"`), which silently breaks every signature. Fixed
+upstream in `@x402/evm@2.22.0`, which this router now requires — the
+interim server-side money-parser workaround is gone. See `NOTES.md` for
+the full trace on both incidents.
 
 `network: "eip155:143"` (Monad mainnet), `asset` is USDC's real mainnet
 contract address, `payTo` is the operator's own wallet — all pulled from
