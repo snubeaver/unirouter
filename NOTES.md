@@ -677,3 +677,11 @@ settlement, silently).
 Caveat: the legacy v1 tables in the Go and Python SDKs still carry
 `"USD Coin"` — irrelevant here (this router is TS + v2 protocol), fix
 raised separately against upstream.
+
+**First external PR merged into this repo**: PR #1 by Madhur Gupta
+(`madhurgupta107@gmail.com`), landed as `0a2d0de` on GitHub, pulled in via
+`git merge origin/main` (no conflicts — the diff touched a different
+region of `payment.ts` than the same-day multi-model refactor). Verified
+after merging that the upgraded library really does declare the correct
+domain by default (re-checked a live `/paid/openai-gpt-oss-20b`
+challenge: `extra.name` is `"USDC"` with no workaround code present).
