@@ -223,25 +223,3 @@ The payment layer is the actual point of this project — everything above
 is the substrate it needs to exist on top of. Measurements on serving
 latency, streaming-vs-prepay economics, and per-request settlement cost
 are being tracked as they come in.
-
-## Keeping it honest
-
-- A cron job re-verifies every paid upstream's pricing daily against the
-  provider's own pricing page and patches `config.ts` if anything changed
-  (e.g. Claude Sonnet 5's introductory pricing steps up on 2026-08-31).
-- Every model in the table above was called for a real completion before
-  being added — several NVIDIA "free" models that looked fine in their
-  catalog listing turned out to be unprovisioned or hung for minutes on
-  real calls, and were cut rather than shipped hoping they'd work.
-- No upstream is silently substituted for another. If a route is down or
-  disabled, the caller gets a clear error, not a surprise model or a
-  surprise bill.
-
-## Non-goals
-
-- Not a Monad-branded product — an independent project that happens to
-  settle on Monad.
-- Not trying to out-router OpenRouter on model breadth. The point is the
-  wallet-not-a-company argument, not the catalog size.
-- No LiteLLM, no provider SDK abstraction layer. The routing table is
-  meant to stay readable in one sitting.
