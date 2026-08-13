@@ -7,10 +7,12 @@ try {
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { buildModelsResponse } from "./models.js";
-import { LOCAL_MODEL, UPSTREAMS, UpstreamEntry, isUpstreamEnabled } from "./config.js";
+import { LOCAL_MODEL, PAID_LOCAL_REQUEST_PRICE, UPSTREAMS, UpstreamEntry, isUpstreamEnabled, prepayMaxPriceUsd } from "./config.js";
 import { callAnthropic, translateAnthropicResponse, translateAnthropicStream } from "./providers/anthropic.js";
 import { checkRateLimit } from "./rate-limit.js";
 import { PAYABLE_MODELS, paidModelsPaymentMiddleware } from "./payment.js";
+import { recordPayment, readStats } from "./stats.js";
+import { renderDashboard } from "./dashboard.js";
 
 const app = new Hono();
 
@@ -18,6 +20,8 @@ app.get("/models", async (c) => {
   const body = await buildModelsResponse();
   return c.json(body);
 });
+
+app.get("/dashboard", (c) => c.html(renderDashboard(readStats())));
 
 async function isLocalHealthy(): Promise<boolean> {
   try {
@@ -93,6 +97,26 @@ async function proxyToUpstream(entry: UpstreamEntry, body: any): Promise<Respons
     headers: { "Content-Type": "application/json" },
   });
 }
+
+// Records a settled payment once the payment middleware (registered next)
+// and the route handler below it have both run — Hono's middleware stack
+// unwinds in reverse, so `c.res` here already carries the
+// `payment-response` header the payment middleware attaches on success.
+app.use("/paid/:slug/chat/completions", async (c, next) => {
+  await next();
+  const paymentResponse = c.res.headers.get("payment-response");
+  if (!paymentResponse) return;
+  try {
+    const decoded = JSON.parse(Buffer.from(paymentResponse, "base64").toString("utf8"));
+    if (!decoded.success) return;
+    const model = PAYABLE_MODELS.find((m) => m.slug === c.req.param("slug"));
+    if (!model) return;
+    const amount = model.entry ? prepayMaxPriceUsd(model.entry.cost!) : Number(PAID_LOCAL_REQUEST_PRICE.slice(1));
+    recordPayment({ ts: new Date().toISOString(), model: model.id, payer: decoded.payer, amount_usd: amount, tx: decoded.transaction });
+  } catch {
+    // malformed header shouldn't take down the response that already succeeded
+  }
+});
 
 // Payment-gated entry point: every paid model (local hardware and every
 // paid upstream) has its own flat-priced route by slug. See payment.ts
