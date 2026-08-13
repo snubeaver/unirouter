@@ -728,3 +728,19 @@ Changed the default to the live ngrok domain; `--url` still overrides it
 for anyone pointing at a different instance. Published as `0.2.0` (minor
 bump — default behavior change). Verified: running `unirouter-cli chat`
 with no `--url` completed a real payment against the public endpoint.
+
+## Public dashboard (2026-08-13)
+
+Added `GET /dashboard` — stat tiles (total requests, volume, unique
+wallets) and a per-model bar chart, backed by a new payment log
+(`router/data/payments.jsonl`, gitignored) that a middleware writes to on
+every settled x402 payment (reads the `payment-response` header after
+the payment gate + handler run, decodes it, records model/payer/amount/tx).
+
+Backfilled the 4 real payments already made this session using their
+actual on-chain block timestamps (`eth_getBlockByHash` per tx), not
+estimates, so the dashboard's history is accurate from before the
+tracking code even existed. Verified live: ran one more real payment via
+`unirouter-cli`, confirmed it appeared in both the JSONL file and the
+rendered dashboard immediately, on both `localhost` and the public ngrok
+URL.

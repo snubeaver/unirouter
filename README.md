@@ -10,6 +10,7 @@ upstream providers, priced per request and paid for via
 > **Status: experimental.** Not a Monad Foundation product.
 
 **Live endpoint:** `https://geralyn-phototelegraphic-greta.ngrok-free.dev`
+([dashboard](https://geralyn-phototelegraphic-greta.ngrok-free.dev/dashboard))
 
 [![npm](https://img.shields.io/npm/v/unirouter-cli.svg?logo=npm)](https://www.npmjs.com/package/unirouter-cli)
 [![npm downloads](https://img.shields.io/npm/dm/unirouter-cli.svg)](https://www.npmjs.com/package/unirouter-cli)
