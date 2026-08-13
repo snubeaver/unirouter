@@ -685,3 +685,32 @@ region of `payment.ts` than the same-day multi-model refactor). Verified
 after merging that the upgraded library really does declare the correct
 domain by default (re-checked a live `/paid/openai-gpt-oss-20b`
 challenge: `extra.name` is `"USDC"` with no workaround code present).
+
+## Public endpoint (2026-08-13)
+
+Router and vLLM had only ever been reachable on `localhost` — no external
+agent could actually hit either one, which Jeffui caught after reporting
+the project as usable externally. Fixed by tunneling port 3402 (not
+8000 — vLLM stays private, the router already proxies to it locally).
+
+Tried Cloudflare Tunnel's account-less "quick tunnel" first: works, but
+the `trycloudflare.com` hostname is randomly regenerated on every
+restart, unusable as a stable, listable endpoint. Tried ngrok's default
+`ngrok http 3402` for the same reason — also randomized per session.
+ngrok free accounts do carry one persistent domain (an "assigned dev
+domain," `*.ngrok-free.dev`), but it isn't picked up automatically; it
+has to be passed explicitly via `--url`. Custom/self-chosen subdomains
+(e.g. `--url=https://unirouter.ngrok.app`) require a paid plan
+(`ERR_NGROK_313`) — the assigned dev domain is the only stable option on
+the free tier.
+
+Live at `ngrok http --url=https://geralyn-phototelegraphic-greta.ngrok-free.dev 3402`,
+running in tmux window `inference:ngrok`. Confirmed the hostname is
+stable across a manual restart (killed and relaunched the tunnel,
+`/models` responded identically on the same URL both times) and that
+both the free and paid routes work through it, not just `/models`.
+
+Free-tier ngrok limits apply: 1GB/month data transfer, 20k HTTP requests/month,
+3 concurrent online endpoints. Fine for now; would need a paid tier or a
+different exposure method (Cloudflare Tunnel + an owned domain) before
+any real traffic volume.
