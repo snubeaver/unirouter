@@ -744,3 +744,40 @@ tracking code even existed. Verified live: ran one more real payment via
 `unirouter-cli`, confirmed it appeared in both the JSONL file and the
 rendered dashboard immediately, on both `localhost` and the public ngrok
 URL.
+
+## First real external usage, and a dashboard bug (2026-08-14)
+
+`payments.jsonl` had grown to 6,955 records overnight — a coworker (per
+Jeffui) hit the live endpoint heavily since it went public: 6,954 local-model
+requests + 1 Claude Haiku, from 5 distinct wallets, $0.7009 logged volume,
+spanning 2026-08-11 to 2026-08-13. Router and vLLM both stayed up through
+it. Initially flagged this as concerning; Jeffui's correction: high real
+usage is the point, not a problem.
+
+Two real issues found while looking into it:
+
+1. **Chart bug**: the requests/day and wallets/day line chart shared one
+   linear axis. Real data (requests maxing at ~6952, wallets at ~5)
+   flattened the wallet line to invisible. Split into two independently-
+   scaled mini charts.
+2. **Logged vs. on-chain volume gap**: `payments.jsonl` summed to $0.7009;
+   an `eth_call` to `balanceOf` on `PAY_TO_ADDRESS` showed $0.7431 — a
+   $0.0422 gap, suspiciously exactly 422 × the local model's $0.0001
+   price. Full on-chain reconciliation (`eth_getLogs` for incoming
+   Transfer events) wasn't feasible: the activity window spans ~605k
+   blocks and the public RPC caps `eth_getLogs` at 100 blocks per call;
+   MonadScan's API needs a key not available in this session. Likely
+   cause: router restarts (several, for today's dashboard/chart work)
+   landing mid-request during the coworker's traffic — the facilitator
+   settles before our tracking middleware gets to run, so a restart at
+   the wrong instant loses the log entry without losing the money.
+
+Resolved per Jeffui's direction ("that's real money too, add it to the
+data") without fabricating per-transaction detail: added a
+`ReconciliationRecord` type (`router/data/reconciliation.jsonl`, separate
+from `PaymentRecord`), one entry for the verified $0.0422 gap, citing the
+exact balance check as `verified_via`. Folds into `total_volume_usd` only
+— not request count or wallet count, since neither is attributable.
+Dashboard now shows $0.7431 (matches the real balance exactly) with the
+unattributed portion called out in a footnote rather than blended in
+silently.
