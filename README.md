@@ -9,6 +9,10 @@ upstream providers, priced per request and paid for via
 
 > **Status: experimental.** Not a Monad Foundation product.
 
+**Live endpoint:** `https://geralyn-phototelegraphic-greta.ngrok-free.dev`
+— `GET /models` works from anywhere; the paid routes are reachable by
+any x402 client, not just `localhost`.
+
 [![npm](https://img.shields.io/npm/v/unirouter-cli.svg?logo=npm)](https://www.npmjs.com/package/unirouter-cli)
 [![npm downloads](https://img.shields.io/npm/dm/unirouter-cli.svg)](https://www.npmjs.com/package/unirouter-cli)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -128,7 +132,7 @@ this repo) signs and retries the 402 for you from a wallet you control:
 npm install -g unirouter-cli
 export WALLET_PRIVATE_KEY=0x...   # USDC on Monad mainnet; no MON needed —
                                    # the facilitator covers settlement gas
-unirouter-cli chat "hello" --url http://localhost:3402 --model gpt-5-mini
+unirouter-cli chat "hello" --url https://geralyn-phototelegraphic-greta.ngrok-free.dev --model gpt-5-mini
 ```
 
 Settlement is on Monad mainnet (`eip155:143`) via `@x402/evm`; `payTo` is
