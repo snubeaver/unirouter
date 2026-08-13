@@ -15,23 +15,20 @@ unirouter-cli chat "hello" --model gpt-5-mini
 By default this talks to the live UniRouter instance. Pass `--url` to
 point at a different instance instead.
 
-The wallet needs to hold **real USDC** on Monad mainnet — this is not a
-testnet faucet flow. You don't need MON for gas: the facilitator relays
-and pays for settlement. `--model` takes any slug from that instance's
-`GET /models` (defaults to `openai-gpt-oss-20b`, the operator's local
-model — every other model, paid or free, has its own slug and price
-reported there too). On a request:
+The wallet needs real USDC on Monad mainnet, not testnet funds. No MON
+needed — the facilitator pays settlement gas. `--model` takes any slug
+from `GET /models` on that instance (default `openai-gpt-oss-20b`).
 
 1. `unirouter-cli` calls the router's `/paid/<model>/chat/completions`.
 2. The router replies `402 Payment Required` with an exact price, asset,
-   and receiving address for that specific model.
-3. The CLI signs an EIP-3009 `transferWithAuthorization` for that exact
-   amount with your private key and retries the request.
-4. The router's facilitator verifies and settles the payment on-chain,
-   then the request is served.
+   and receiving address for that model.
+3. The CLI signs an EIP-3009 `transferWithAuthorization` for that amount
+   and retries the request.
+4. The facilitator verifies and settles the payment on-chain, then the
+   request is served.
 
-No private key ever leaves your machine except as a signed payment
-authorization scoped to the exact price of that one request.
+The private key stays local; only a signed, request-scoped payment
+authorization is sent over the network.
 
 ## Commands
 

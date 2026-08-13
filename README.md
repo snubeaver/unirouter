@@ -38,7 +38,6 @@ UniRouter — TS + Hono, one process, port 3402
 - The router does not run any model itself. Requests are proxied to the
   local vLLM process or to an upstream provider's API.
 - Every upstream has a `tier`, a `kill_switch` env var, and a rate limit.
-  Removing an upstream is an env var change, not a deploy.
 - `fee_bps` (markup on pass-through cost, currently `0`) is a single
   config constant in `router/src/config.ts`.
 
@@ -105,8 +104,7 @@ curl http://localhost:3402/v1/chat/completions \
 ```
 
 An upstream without its API key set in `.env` reports
-`"status": "disabled"` on `/models` and returns `503` if called directly —
-never a silent fallback to a different model.
+`"status": "disabled"` on `/models` and returns `503` if called directly.
 
 ## Paying for inference
 
@@ -124,7 +122,7 @@ curl -i http://localhost:3402/paid/gpt-5-mini/chat/completions \
 ```
 
 [`unirouter-cli`](https://www.npmjs.com/package/unirouter-cli) (`cli/` in
-this repo) signs and retries the 402 for you from a wallet you control:
+this repo) signs and retries the 402 from your wallet:
 
 ```bash
 npm install -g unirouter-cli
@@ -138,15 +136,11 @@ the operator's wallet, `asset` is USDC.
 
 ## Pricing
 
-The local model is a flat $0.0001 floor per request. Every other paid
-model is charged **prepay-max**: a fixed estimate of 500 prompt tokens +
-1000 completion tokens at that model's real per-token cost, charged up
-front regardless of actual usage. This is the pricing model because the
-x402 payment layer authorizes a charge before the request body is
-available to price against — a route cannot price itself by `model` or
-`max_tokens` at settlement time. Flat, request-level pricing is also the
-established pattern in production x402 usage; per-token settlement is not
-yet solved by the protocol.
+The local model charges a flat $0.0001 per request. Every other paid
+model charges a flat **prepay-max** estimate — 500 prompt tokens + 1000
+completion tokens at that model's real rate, charged upfront regardless
+of actual usage — since price is set before the request body is
+available to the payment layer.
 
 ## Roadmap
 
