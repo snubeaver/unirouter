@@ -4,6 +4,7 @@ import { ExactEvmScheme } from "@x402/evm";
 import { privateKeyToAccount } from "viem/accounts";
 
 const MONAD_MAINNET = "eip155:143";
+const DEFAULT_URL = "https://geralyn-phototelegraphic-greta.ngrok-free.dev";
 
 function printHelp() {
   console.log(`unirouter-cli chat <message> [options]
@@ -13,7 +14,7 @@ mainnet. Requires WALLET_PRIVATE_KEY in the environment — never pass a key
 on the command line, it ends up in your shell history.
 
 Options:
-  --url <url>          Router base URL (default: http://localhost:3402)
+  --url <url>          Router base URL (default: ${DEFAULT_URL})
   --model <slug>       Model slug to pay for, from GET <url>/models
                         (default: openai-gpt-oss-20b, the local model)
   --max-tokens <n>     Max tokens to request (default: 200)
@@ -27,7 +28,7 @@ Environment:
 }
 
 function parseArgs(argv) {
-  const args = { url: "http://localhost:3402", model: "openai-gpt-oss-20b", maxTokens: 200 };
+  const args = { url: DEFAULT_URL, model: "openai-gpt-oss-20b", maxTokens: 200 };
   const rest = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];

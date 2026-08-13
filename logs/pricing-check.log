@@ -18,3 +18,5 @@ I re-verified all 8 upstream entries in `router/src/config.ts` against the live 
 All 8 entries' prices are unchanged, and every `price_verified_at` was already set to today's date (2026-08-11), so no edits to `config.ts` were needed. Since no cost values changed, per the job's instructions I did not touch `NOTES.md` (silent no-op day). No deprecated/missing models were found either.
 === pricing check run: 2026-08-12T00:00:01Z ===
 /Users/thbeaver/inference-provider/scripts/check-pricing.sh: line 7: claude: command not found
+=== pricing check run: 2026-08-13T00:00:00Z ===
+/Users/thbeaver/inference-provider/scripts/check-pricing.sh: line 7: claude: command not found

@@ -714,3 +714,17 @@ Free-tier ngrok limits apply: 1GB/month data transfer, 20k HTTP requests/month,
 3 concurrent online endpoints. Fine for now; would need a paid tier or a
 different exposure method (Cloudflare Tunnel + an owned domain) before
 any real traffic volume.
+
+## unirouter-cli defaults to the live instance (2026-08-13)
+
+`unirouter-cli`'s `--url` previously defaulted to `http://localhost:3402`
+— only useful to whoever is running their own router instance, which for
+most installs isn't the point. The CLI exists specifically to pay this
+project's hosted router, not to help someone stand up their own (that's
+a different tool, e.g. BlockRun's ClawRouter — checked their repo: it
+runs entirely locally with a self-generated wallet, no hosted endpoint at
+all, a genuinely different architecture, not something to imitate here).
+Changed the default to the live ngrok domain; `--url` still overrides it
+for anyone pointing at a different instance. Published as `0.2.0` (minor
+bump — default behavior change). Verified: running `unirouter-cli chat`
+with no `--url` completed a real payment against the public endpoint.

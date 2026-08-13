@@ -9,8 +9,11 @@ npm install -g unirouter-cli
 
 export WALLET_PRIVATE_KEY=0x...   # a wallet funded with real USDC on Monad mainnet
 
-unirouter-cli chat "hello" --url https://your-unirouter-instance.example --model gpt-5-mini
+unirouter-cli chat "hello" --model gpt-5-mini
 ```
+
+By default this talks to the live UniRouter instance. Pass `--url` to
+point at a different instance instead.
 
 The wallet needs to hold **real USDC** on Monad mainnet — this is not a
 testnet faucet flow. You don't need MON for gas: the facilitator relays
@@ -36,7 +39,7 @@ authorization scoped to the exact price of that one request.
 unirouter-cli chat <message> [--url <url>] [--model <slug>] [--max-tokens <n>]
 ```
 
-- `--url` — router base URL (default `http://localhost:3402`)
+- `--url` — router base URL (default: the live UniRouter instance)
 - `--model` — model slug from that instance's `/models` (default `openai-gpt-oss-20b`)
 - `--max-tokens` — default `200`
 

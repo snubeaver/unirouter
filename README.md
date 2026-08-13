@@ -132,7 +132,7 @@ this repo) signs and retries the 402 for you from a wallet you control:
 npm install -g unirouter-cli
 export WALLET_PRIVATE_KEY=0x...   # USDC on Monad mainnet; no MON needed —
                                    # the facilitator covers settlement gas
-unirouter-cli chat "hello" --url https://geralyn-phototelegraphic-greta.ngrok-free.dev --model gpt-5-mini
+unirouter-cli chat "hello" --model gpt-5-mini   # defaults to the live endpoint above
 ```
 
 Settlement is on Monad mainnet (`eip155:143`) via `@x402/evm`; `payTo` is

@@ -1,6 +1,6 @@
 {
   "name": "unirouter-cli",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "Pay UniRouter for inference with a wallet via x402 on Monad mainnet.",
   "type": "module",
   "bin": {
