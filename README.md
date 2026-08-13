@@ -10,8 +10,6 @@ upstream providers, priced per request and paid for via
 > **Status: experimental.** Not a Monad Foundation product.
 
 **Live endpoint:** `https://geralyn-phototelegraphic-greta.ngrok-free.dev`
-— `GET /models` works from anywhere; the paid routes are reachable by
-any x402 client, not just `localhost`.
 
 [![npm](https://img.shields.io/npm/v/unirouter-cli.svg?logo=npm)](https://www.npmjs.com/package/unirouter-cli)
 [![npm downloads](https://img.shields.io/npm/dm/unirouter-cli.svg)](https://www.npmjs.com/package/unirouter-cli)
