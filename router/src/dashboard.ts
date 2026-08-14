@@ -144,7 +144,6 @@ export function renderDashboard(stats: Stats): string {
   }
   .stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 6px; }
   .stat-value { font-size: 28px; font-weight: 600; margin: 0; }
-  .stat-note { font-size: 11px; color: var(--text-muted); margin: 4px 0 0; }
   .section-title { font-size: 14px; color: var(--text-secondary); margin: 0 0 12px; font-weight: 600; }
   .bar-chart { display: flex; flex-direction: column; gap: 10px; }
   .bar-row { display: grid; grid-template-columns: 180px 1fr 130px; align-items: center; gap: 12px; }
@@ -190,7 +189,6 @@ export function renderDashboard(stats: Stats): string {
       <div class="stat-tile">
         <p class="stat-label">Total volume</p>
         <p class="stat-value">${fmtUsd(stats.total_volume_usd)}</p>
-        ${stats.unattributed_volume_usd > 0 ? `<p class="stat-note">incl. ${fmtUsd(stats.unattributed_volume_usd)} on-chain, unattributed to a specific request</p>` : ""}
       </div>
       <div class="stat-tile">
         <p class="stat-label">Unique wallets</p>
