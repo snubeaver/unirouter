@@ -1,11 +1,15 @@
-import { FEE_BPS, LOCAL_MODEL, PAID_LOCAL_REQUEST_PRICE, UPSTREAMS, isUpstreamEnabled, prepayMaxPriceUsd } from "./config.js";
-import { PAYABLE_MODELS } from "./payment.js";
+import { DEFAULT_MAX_OUTPUT_TOKENS, FEE_BPS, LOCAL_MODEL, UPSTREAMS, isUpstreamEnabled } from "./config.js";
+import { PAYABLE_MODELS, priceForRequest } from "./payment.js";
 
 function paymentInfo(modelId: string) {
   const payable = PAYABLE_MODELS.find((m) => m.id === modelId);
   if (!payable) return null; // beta-free: served free on /v1/chat/completions
-  const price_usd = payable.entry ? prepayMaxPriceUsd(payable.entry.cost!) : Number(PAID_LOCAL_REQUEST_PRICE.slice(1));
-  return { endpoint: `/paid/${payable.slug}/chat/completions`, price_usd, note: "flat prepay-max, not per-token" };
+  const price_usd = Number(priceForRequest(payable, undefined).toFixed(6));
+  return {
+    endpoint: `/paid/${payable.slug}/chat/completions`,
+    price_usd,
+    note: `price for the default ${DEFAULT_MAX_OUTPUT_TOKENS}-token output budget; scales with the X-Max-Tokens request header`,
+  };
 }
 
 async function isLocalHealthy(): Promise<boolean> {

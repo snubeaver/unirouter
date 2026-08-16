@@ -17,7 +17,8 @@ Options:
   --url <url>          Router base URL (default: ${DEFAULT_URL})
   --model <slug>       Model slug to pay for, from GET <url>/models
                         (default: openai-gpt-oss-20b, the local model)
-  --max-tokens <n>     Max tokens to request (default: 200)
+  --max-tokens <n>     Output token budget to buy (default: 200, max 32768).
+                        The per-request price scales with this.
 
 Environment:
   WALLET_PRIVATE_KEY   0x-prefixed private key for the paying wallet.
@@ -76,9 +77,11 @@ async function main() {
     schemes: [{ network: MONAD_MAINNET, client: new ExactEvmScheme(account) }],
   });
 
+  // X-Max-Tokens buys the output budget: the router prices the 402
+  // challenge off this header, and rejects any body max_tokens above it.
   const res = await fetchWithPayment(`${args.url}/paid/${args.model}/chat/completions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-Max-Tokens": String(args.maxTokens) },
     body: JSON.stringify({
       messages: [{ role: "user", content: message }],
       max_tokens: args.maxTokens,

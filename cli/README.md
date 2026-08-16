@@ -38,10 +38,12 @@ unirouter-cli chat <message> [--url <url>] [--model <slug>] [--max-tokens <n>]
 
 - `--url` — router base URL (default: the live UniRouter instance)
 - `--model` — model slug from that instance's `/models` (default `openai-gpt-oss-20b`)
-- `--max-tokens` — default `200`
+- `--max-tokens` — output token budget to buy (default `200`, max `32768`); the price scales with it
 
 ## Pricing
 
-Charges are flat per request, not per-token — see
-[unirouter's README](https://github.com/snubeaver/unirouter#pricing) for
-the pricing model.
+Each request charges upfront for the output budget set by `--max-tokens`
+— the CLI sends it as the `X-Max-Tokens` header and the router prices
+the 402 challenge accordingly. See
+[unirouter's README](https://github.com/snubeaver/unirouter#models--pricing)
+for per-model prices.

@@ -36,27 +36,41 @@ export const CHAINS: ChainEntry[] = [
 
 export const DEFAULT_CHAIN = CHAINS[0];
 
-// Flat per-request price for the local model's paid endpoint. Not
-// per-token: the payment layer authorizes a charge before the request
-// body is parsed, so pricing can't depend on `model` or `max_tokens`.
-export const PAID_LOCAL_REQUEST_PRICE = "$0.0001";
-
 // URL-safe, single-segment identifier for a model id (many ids contain
 // "/", e.g. "qwen/qwen3.7-max", which can't be a raw path segment).
 export function toSlug(id: string): string {
   return id.replace(/\//g, "-");
 }
 
-// Prepay-max pricing for paid upstreams: charge as if every request uses
-// this many prompt/completion tokens, since the payment layer can't see
-// actual usage before authorizing a charge. Conservative, not exact — a
-// request with much larger `max_tokens` is still undercharged.
-export const PREPAY_ASSUMED_PROMPT_TOKENS = 500;
-export const PREPAY_ASSUMED_COMPLETION_TOKENS = 1000;
+// Prepay pricing. The payment layer can't see the request body when it
+// prices a request, but it can see headers — so the price scales with
+// the X-Max-Tokens request header (output budget the caller is buying),
+// while input is a fixed assumption enforced as a body-size limit
+// (estimated at 4 bytes/token). Both are enforced BEFORE payment (see
+// the guard in index.ts), so a request can never cost more than it paid.
+export const PREPAY_ASSUMED_PROMPT_TOKENS = 2000;
+export const DEFAULT_MAX_OUTPUT_TOKENS = 1000;
+export const MAX_OUTPUT_TOKENS_CEILING = 32768;
+export const MAX_REQUEST_BODY_BYTES = PREPAY_ASSUMED_PROMPT_TOKENS * 4;
 
-export function prepayMaxPriceUsd(cost: { prompt: string; completion: string }): number {
-  const raw = Number(cost.prompt) * PREPAY_ASSUMED_PROMPT_TOKENS + Number(cost.completion) * PREPAY_ASSUMED_COMPLETION_TOKENS;
+export function clampOutputTokens(raw: string | undefined): number {
+  if (raw === undefined) return DEFAULT_MAX_OUTPUT_TOKENS;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 1) return DEFAULT_MAX_OUTPUT_TOKENS;
+  return Math.min(Math.floor(n), MAX_OUTPUT_TOKENS_CEILING);
+}
+
+export function upstreamPriceUsd(cost: { prompt: string; completion: string }, maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS): number {
+  const raw = Number(cost.prompt) * PREPAY_ASSUMED_PROMPT_TOKENS + Number(cost.completion) * maxOutputTokens;
   return raw * (1 + FEE_BPS / 10_000);
+}
+
+// Local model: the published $0.0001 floor covers requests up to the
+// default output budget; only output beyond that accrues per-token.
+export function localPriceUsd(maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS): number {
+  const floor = Number(LOCAL_MODEL.pricing.request);
+  const extra = Math.max(0, maxOutputTokens - DEFAULT_MAX_OUTPUT_TOKENS) * Number(LOCAL_MODEL.pricing.completion);
+  return floor + extra;
 }
 
 export type UpstreamTier = "local" | "beta-free" | "paid";

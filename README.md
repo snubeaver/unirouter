@@ -55,34 +55,39 @@ endpoint, and its exact per-request price.
 
 ### Paid — `POST /paid/<slug>/chat/completions`
 
-Every paid request charges a flat amount upfront. The local model is a
-fixed $0.0001 per request; every other model charges a prepay-max
-estimate of 500 input + 1000 output tokens at its per-token rate.
-Sorted by price per request:
+Every paid request charges upfront for an **output token budget**, set
+by the `X-Max-Tokens` request header (default 1000, max 32768) — the
+price scales with the budget you buy. Input is covered up to 2000 tokens
+(8KB request body). The table shows the price at the default budget:
 
-| Model | Provider | Context | Price / request | Rate basis (in / out, $/1M) |
+| Model | Provider | Context | Price / request (default) | Rate basis (in / out, $/1M) |
 |---|---|---|---|---|
-| `openai/gpt-oss-20b` | local | 32K | **$0.0001** | fixed |
-| `deepseek-v4-flash` | DeepSeek | 1M | $0.00035 | $0.14 / $0.28 |
-| `deepseek-v4-pro` | DeepSeek | 1M | $0.001087 | $0.43 / $0.87 |
-| `z-ai/glm-5.2` | OpenRouter | 1.05M | $0.00178 | $0.49 / $1.54 |
-| `gpt-5-mini` | OpenAI | 400K | $0.002125 | $0.25 / $2.00 |
-| `gemini-3.5-flash-lite` | Google | 1.05M | $0.00265 | $0.30 / $2.50 |
-| `grok-4.3` | xAI | 1M | $0.003125 | $1.25 / $2.50 |
-| `qwen/qwen3.7-max` | OpenRouter | 1M | $0.005163 | $1.48 / $4.42 |
-| `claude-haiku-4-5` | Anthropic | 200K | $0.0055 | $1.00 / $5.00 |
-| `grok-4.5` | xAI | 500K | $0.007 | $2.00 / $6.00 |
-| `gemini-3.6-flash` | Google | 1.05M | $0.00825 | $1.50 / $7.50 |
-| `gpt-5.1` | OpenAI | 400K | $0.010625 | $1.25 / $10.00 |
-| `claude-sonnet-5` | Anthropic | 1M | $0.011 | $2.00 / $10.00 |
-| `gemini-3.1-pro-preview` | Google | 1.05M | $0.013 | $2.00 / $12.00 |
-| `moonshotai/kimi-k3` | OpenRouter | 1.05M | $0.0165 | $3.00 / $15.00 |
-| `claude-opus-5` | Anthropic | 1M | $0.0275 | $5.00 / $25.00 |
-| `gpt-5.5` | OpenAI | 1.05M | $0.0325 | $5.00 / $30.00 |
+| `openai/gpt-oss-20b` | local | 32K | **$0.0001** | $0.13 out beyond default |
+| `deepseek-v4-flash` | DeepSeek | 1M | $0.00056 | $0.14 / $0.28 |
+| `deepseek-v4-pro` | DeepSeek | 1M | $0.00174 | $0.43 / $0.87 |
+| `gpt-5-mini` | OpenAI | 400K | $0.0025 | $0.25 / $2.00 |
+| `z-ai/glm-5.2` | OpenRouter | 1.05M | $0.002513 | $0.49 / $1.54 |
+| `gemini-3.5-flash-lite` | Google | 1.05M | $0.0031 | $0.30 / $2.50 |
+| `grok-4.3` | xAI | 1M | $0.005 | $1.25 / $2.50 |
+| `claude-haiku-4-5` | Anthropic | 200K | $0.007 | $1.00 / $5.00 |
+| `qwen/qwen3.7-max` | OpenRouter | 1M | $0.007375 | $1.48 / $4.42 |
+| `grok-4.5` | xAI | 500K | $0.01 | $2.00 / $6.00 |
+| `gemini-3.6-flash` | Google | 1.05M | $0.0105 | $1.50 / $7.50 |
+| `gpt-5.1` | OpenAI | 400K | $0.0125 | $1.25 / $10.00 |
+| `claude-sonnet-5` | Anthropic | 1M | $0.014 | $2.00 / $10.00 |
+| `gemini-3.1-pro-preview` | Google | 1.05M | $0.016 | $2.00 / $12.00 |
+| `moonshotai/kimi-k3` | OpenRouter | 1.05M | $0.021 | $3.00 / $15.00 |
+| `claude-opus-5` | Anthropic | 1M | $0.035 | $5.00 / $25.00 |
+| `gpt-5.5` | OpenAI | 1.05M | $0.04 | $5.00 / $30.00 |
+
+A larger budget prices linearly: `gpt-5-mini` with `X-Max-Tokens: 4000`
+costs $0.0085 (2000 input + 4000 output at its rates). Requests whose
+`max_tokens` exceed the paid budget, or whose body exceeds the input
+cap, are rejected with `400` before any payment is taken.
 
 A route's `<slug>` is the model id with `/` replaced by `-`
 (`qwen/qwen3.7-max` → `qwen-qwen3.7-max`). `GET /models` reports the
-exact slug and live price for every model.
+exact slug and live default price for every model.
 
 ## How payment works
 

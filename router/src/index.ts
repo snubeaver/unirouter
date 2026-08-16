@@ -8,10 +8,19 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { buildModelsResponse } from "./models.js";
-import { LOCAL_MODEL, PAID_LOCAL_REQUEST_PRICE, UPSTREAMS, UpstreamEntry, isUpstreamEnabled, prepayMaxPriceUsd } from "./config.js";
+import {
+  LOCAL_MODEL,
+  MAX_OUTPUT_TOKENS_CEILING,
+  MAX_REQUEST_BODY_BYTES,
+  PREPAY_ASSUMED_PROMPT_TOKENS,
+  UPSTREAMS,
+  UpstreamEntry,
+  clampOutputTokens,
+  isUpstreamEnabled,
+} from "./config.js";
 import { callAnthropic, translateAnthropicResponse, translateAnthropicStream } from "./providers/anthropic.js";
 import { checkRateLimit } from "./rate-limit.js";
-import { PAYABLE_MODELS, paidModelsPaymentMiddleware } from "./payment.js";
+import { PAYABLE_MODELS, paidModelsPaymentMiddleware, priceForRequest } from "./payment.js";
 import { recordPayment, readStats } from "./stats.js";
 import { renderDashboard } from "./dashboard.js";
 
@@ -115,6 +124,58 @@ async function proxyToUpstream(entry: UpstreamEntry, body: any): Promise<Respons
   });
 }
 
+// Request-size guard. Must run BEFORE the payment middleware so an
+// oversized request is rejected before any payment is authorized, not
+// after. The price covers PREPAY_ASSUMED_PROMPT_TOKENS of input (enforced
+// as a body-size limit at ~4 bytes/token) and the output budget bought
+// via the X-Max-Tokens header (default 1000) — the body's max_tokens may
+// not exceed what was paid for.
+app.use("/paid/:slug/chat/completions", async (c, next) => {
+  const raw = await c.req.text();
+  if (Buffer.byteLength(raw, "utf8") > MAX_REQUEST_BODY_BYTES) {
+    return c.json(
+      {
+        error: {
+          message: `request body exceeds ${MAX_REQUEST_BODY_BYTES} bytes (~${PREPAY_ASSUMED_PROMPT_TOKENS} input tokens) — the per-request price covers up to that much input`,
+        },
+      },
+      400,
+    );
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return c.json({ error: { message: "request body must be a JSON object" } }, 400);
+  }
+  if (typeof parsed !== "object" || parsed === null) {
+    return c.json({ error: { message: "request body must be a JSON object" } }, 400);
+  }
+  const header = c.req.header("x-max-tokens");
+  if (header !== undefined && (!Number.isFinite(Number(header)) || Number(header) < 1 || Number(header) > MAX_OUTPUT_TOKENS_CEILING)) {
+    return c.json(
+      { error: { message: `X-Max-Tokens must be a number between 1 and ${MAX_OUTPUT_TOKENS_CEILING}` } },
+      400,
+    );
+  }
+  const paidOutputBudget = clampOutputTokens(header);
+  const body = parsed as Record<string, unknown>;
+  for (const field of ["max_tokens", "max_completion_tokens"]) {
+    const v = body[field];
+    if (v !== undefined && Number(v) > paidOutputBudget) {
+      return c.json(
+        {
+          error: {
+            message: `${field} exceeds the paid output budget of ${paidOutputBudget} — request a larger budget via the X-Max-Tokens header (priced accordingly)`,
+          },
+        },
+        400,
+      );
+    }
+  }
+  await next();
+});
+
 // Records a settled payment once the payment middleware (registered next)
 // and the route handler below it have both run — Hono's middleware stack
 // unwinds in reverse, so `c.res` here already carries the
@@ -128,7 +189,7 @@ app.use("/paid/:slug/chat/completions", async (c, next) => {
     if (!decoded.success) return;
     const model = PAYABLE_MODELS.find((m) => m.slug === c.req.param("slug"));
     if (!model) return;
-    const amount = model.entry ? prepayMaxPriceUsd(model.entry.cost!) : Number(PAID_LOCAL_REQUEST_PRICE.slice(1));
+    const amount = Number(priceForRequest(model, c.req.header("x-max-tokens")).toFixed(6));
     recordPayment({ ts: new Date().toISOString(), model: model.id, payer: decoded.payer, amount_usd: amount, tx: decoded.transaction });
   } catch {
     // malformed header shouldn't take down the response that already succeeded
@@ -148,6 +209,9 @@ app.post("/paid/:slug/chat/completions", async (c) => {
   const body = await readJsonBody(c);
   if (!body) {
     return c.json({ error: { message: "request body must be a JSON object" } }, 400);
+  }
+  if (body.max_tokens === undefined && body.max_completion_tokens === undefined) {
+    body.max_tokens = clampOutputTokens(c.req.header("x-max-tokens"));
   }
   if (!model.entry) {
     return proxyToLocal({ ...body, model: LOCAL_MODEL.id });

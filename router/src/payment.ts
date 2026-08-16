@@ -4,11 +4,12 @@ import { HTTPFacilitatorClient } from "@x402/core/server";
 import {
   DEFAULT_CHAIN,
   LOCAL_MODEL,
-  PAID_LOCAL_REQUEST_PRICE,
   UPSTREAMS,
   UpstreamEntry,
-  prepayMaxPriceUsd,
+  clampOutputTokens,
+  localPriceUsd,
   toSlug,
+  upstreamPriceUsd,
 } from "./config.js";
 
 const facilitatorClient = new HTTPFacilitatorClient({ url: DEFAULT_CHAIN.facilitator_url });
@@ -24,15 +25,18 @@ export interface PayableModel {
   entry: UpstreamEntry | null; // null for the local model
 }
 
-// Every paid (non-beta-free) model is payable — local at its flat
-// request price, every other paid upstream at a prepay-max estimate
-// (see config.ts). beta-free entries are deliberately excluded: there's
-// no real cost to protect, so they stay on the open route instead of
-// adding payment friction for nothing.
+// Every paid (non-beta-free) model is payable. beta-free entries are
+// deliberately excluded: there's no real cost to protect, so they stay
+// on the open route instead of adding payment friction for nothing.
 export const PAYABLE_MODELS: PayableModel[] = [
   { slug: toSlug(LOCAL_MODEL.id), id: LOCAL_MODEL.id, entry: null },
   ...UPSTREAMS.filter((u) => u.tier === "paid" && u.cost).map((u) => ({ slug: toSlug(u.id), id: u.id, entry: u })),
 ];
+
+export function priceForRequest(model: PayableModel, maxTokensHeader: string | undefined): number {
+  const outputTokens = clampOutputTokens(maxTokensHeader);
+  return model.entry ? upstreamPriceUsd(model.entry.cost!, outputTokens) : localPriceUsd(outputTokens);
+}
 
 export function paidModelsPaymentMiddleware() {
   const payTo = process.env.PAY_TO_ADDRESS;
@@ -42,14 +46,20 @@ export function paidModelsPaymentMiddleware() {
 
   const routes: Parameters<typeof paymentMiddleware>[0] = {};
   for (const m of PAYABLE_MODELS) {
-    const price = m.entry
-      ? `$${prepayMaxPriceUsd(m.entry.cost!).toFixed(6)}`
-      : PAID_LOCAL_REQUEST_PRICE;
     routes[`POST /paid/${m.slug}/chat/completions`] = {
-      accepts: { scheme: "exact", price, network: DEFAULT_CHAIN.id, payTo },
+      accepts: {
+        scheme: "exact",
+        // Price scales with the output budget the caller buys via the
+        // X-Max-Tokens request header (default 1000). Deterministic in the
+        // header value, so the 402 challenge and the paid retry price the
+        // same request identically.
+        price: (ctx) => `$${priceForRequest(m, ctx.adapter.getHeader("x-max-tokens")).toFixed(6)}`,
+        network: DEFAULT_CHAIN.id,
+        payTo,
+      },
       description: m.entry
-        ? `Flat prepay-max access to ${m.id} via ${m.entry.provider}`
-        : `Flat per-request access to ${m.id} on local hardware`,
+        ? `Per-request access to ${m.id} via ${m.entry.provider}`
+        : `Per-request access to ${m.id} on local hardware`,
     };
   }
 
