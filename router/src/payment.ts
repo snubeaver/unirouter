@@ -40,7 +40,7 @@ export function paidModelsPaymentMiddleware() {
     throw new Error("PAY_TO_ADDRESS not set — cannot start paid routes without a receiving wallet");
   }
 
-  const routes: Record<string, unknown> = {};
+  const routes: Parameters<typeof paymentMiddleware>[0] = {};
   for (const m of PAYABLE_MODELS) {
     const price = m.entry
       ? `$${prepayMaxPriceUsd(m.entry.cost!).toFixed(6)}`
@@ -53,5 +53,5 @@ export function paidModelsPaymentMiddleware() {
     };
   }
 
-  return paymentMiddleware(routes as never, resourceServer);
+  return paymentMiddleware(routes, resourceServer);
 }

@@ -1,2 +1,7 @@
 .DS_Store
 .claude/settings.local.json
+
+# internal — dev log, agent instructions, runtime logs
+NOTES.md
+CLAUDE.md
+logs/

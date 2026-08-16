@@ -6,6 +6,7 @@ try {
 
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import { logger } from "hono/logger";
 import { buildModelsResponse } from "./models.js";
 import { LOCAL_MODEL, PAID_LOCAL_REQUEST_PRICE, UPSTREAMS, UpstreamEntry, isUpstreamEnabled, prepayMaxPriceUsd } from "./config.js";
 import { callAnthropic, translateAnthropicResponse, translateAnthropicStream } from "./providers/anthropic.js";
@@ -15,6 +16,22 @@ import { recordPayment, readStats } from "./stats.js";
 import { renderDashboard } from "./dashboard.js";
 
 const app = new Hono();
+
+app.use(logger());
+
+app.onError((err, c) => {
+  console.error(`[error] ${c.req.method} ${c.req.path}:`, err);
+  return c.json({ error: { message: "internal error" } }, 500);
+});
+
+async function readJsonBody(c: { req: { json(): Promise<unknown> } }): Promise<Record<string, unknown> | null> {
+  try {
+    const body = await c.req.json();
+    return typeof body === "object" && body !== null ? (body as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
 
 app.get("/models", async (c) => {
   const body = await buildModelsResponse();
@@ -128,7 +145,10 @@ app.post("/paid/:slug/chat/completions", async (c) => {
   if (!model) {
     return c.json({ error: { message: `unknown or unpayable model slug: ${slug}` } }, 404);
   }
-  const body = await c.req.json();
+  const body = await readJsonBody(c);
+  if (!body) {
+    return c.json({ error: { message: "request body must be a JSON object" } }, 400);
+  }
   if (!model.entry) {
     return proxyToLocal({ ...body, model: LOCAL_MODEL.id });
   }
@@ -140,7 +160,10 @@ app.post("/paid/:slug/chat/completions", async (c) => {
 // friction would be pointless; everything else (local hardware, every
 // paid upstream) must go through /paid/<slug>/chat/completions instead.
 app.post("/v1/chat/completions", async (c) => {
-  const body = await c.req.json();
+  const body = await readJsonBody(c);
+  if (!body) {
+    return c.json({ error: { message: "request body must be a JSON object" } }, 400);
+  }
   const modelId = body.model;
 
   const payable = PAYABLE_MODELS.find((m) => m.id === modelId);

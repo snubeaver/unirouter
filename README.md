@@ -2,10 +2,9 @@
 
 **An inference router for anyone who can pay via x402.**
 
-UniRouter is an OpenAI-compatible inference router: one endpoint in front of
-a local [vLLM](https://github.com/vllm-project/vllm) backend and seven
-upstream providers, priced per request and paid for via
-[x402](https://github.com/x402-foundation/x402) on Monad mainnet.
+One OpenAI-compatible endpoint, 19 models, per-request USDC pricing on
+Monad mainnet. No signup, no API key — a funded wallet is the only
+credential.
 
 > **Status: experimental.** Not a Monad Foundation product.
 
@@ -22,41 +21,37 @@ upstream providers, priced per request and paid for via
 
 ---
 
-## Architecture
+## Quick start
 
-```
-Agent (pays via x402)
-   │
-   ▼
-UniRouter — TS + Hono, one process, port 3402
-   │
-   ├── localhost:8000 ── vLLM serving openai/gpt-oss-20b
-   ├── OpenAI, Anthropic, DeepSeek, Grok, Gemini ── direct, paid
-   ├── OpenRouter ── Qwen / Kimi / GLM
-   └── NVIDIA build.nvidia.com ── beta-free tier (rate-capped, killable)
+```bash
+npm install -g unirouter-cli
+export WALLET_PRIVATE_KEY=0x...   # USDC on Monad mainnet; gas is covered by the facilitator
+unirouter-cli chat "hello" --model gpt-5-mini
 ```
 
-- The router does not run any model itself. Requests are proxied to the
-  local vLLM process or to an upstream provider's API.
-- Every upstream has a `tier`, a `kill_switch` env var, and a rate limit.
-- `fee_bps` (markup on pass-through cost, currently `0`) is a single
-  config constant in `router/src/config.ts`.
+The CLI fetches the 402 challenge, signs a payment authorization for the
+exact price, retries, and prints the reply. One request, one on-chain
+USDC settlement.
 
-## Models
+Free models need no wallet:
 
-`GET /models` lists every model with live availability and, for paid
-models, the exact payment endpoint and price.
+```bash
+curl https://geralyn-phototelegraphic-greta.ngrok-free.dev/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model": "nvidia/nemotron-3-nano-30b-a3b", "messages": [{"role":"user","content":"hi"}], "stream": true}'
+```
 
-Two models are free (NVIDIA's beta-free tier — no cost to protect).
-Every other model, including the local one, requires payment; calling it
-on the free endpoint returns `402` with the correct paid route.
+## Models & pricing
+
+`GET /models` lists every model with live availability, its payment
+endpoint, and its exact per-request price.
 
 ### Free — `POST /v1/chat/completions`
 
 | Model | Provider | Context |
 |---|---|---|
-| `nvidia/nemotron-3-nano-30b-a3b` | NVIDIA beta-free | 128K |
-| `nvidia/nemotron-3-super-120b-a12b` | NVIDIA beta-free | 128K |
+| `nvidia/nemotron-3-nano-30b-a3b` | NVIDIA | 128K |
+| `nvidia/nemotron-3-super-120b-a12b` | NVIDIA | 128K |
 
 ### Paid — `POST /paid/<slug>/chat/completions`
 
@@ -82,73 +77,47 @@ Sorted by input price ($/1M tokens):
 | `gpt-5.5` | OpenAI | 1.05M | $5.00 / $30.00 |
 | `claude-opus-5` | Anthropic | 1M | $5.00 / $25.00 |
 
-These per-token rates are the provider's real cost, pass-through plus
-`fee_bps`. What a request actually charges is a flat, prepay-max amount —
-see [Pricing](#pricing) below, prices are also available per model via
-`GET /models`.
+A route's `<slug>` is the model id with `/` replaced by `-`
+(`qwen/qwen3.7-max` → `qwen-qwen3.7-max`).
 
-## Quick start
+Each paid request charges a flat amount upfront: $0.0001 for the local
+model, and for every other model a prepay-max estimate of 500 input +
+1000 output tokens at the per-token rates above.
+
+## How payment works
+
+Paid routes speak standard x402 v2, so any x402 client works — not just
+the CLI:
+
+```bash
+curl -i https://geralyn-phototelegraphic-greta.ngrok-free.dev/paid/gpt-5-mini/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role":"user","content":"hi"}], "max_tokens": 20}'
+```
+
+1. The router replies `402` with a `payment-required` header carrying the
+   price, the USDC asset address, and the receiving address.
+2. The client signs an EIP-3009 `transferWithAuthorization` for that
+   exact amount and retries.
+3. The facilitator verifies and settles on-chain (`eip155:143`, gas paid
+   by the facilitator), and the request is served.
+
+The private key stays on the client; only a signed, request-scoped
+payment authorization goes over the wire.
+
+## Self-hosting
+
+The router is a single Node process that proxies to a local
+[vLLM](https://github.com/vllm-project/vllm) instance and seven upstream
+providers — it runs no models itself.
 
 ```bash
 cd router
 npm install
-cp .env.example .env   # add the keys for whichever upstreams you want live
+cp .env.example .env   # add keys for whichever upstreams you want live, plus PAY_TO_ADDRESS
 npm run start          # http://localhost:3402
 ```
 
-```bash
-curl http://localhost:3402/models
-
-curl http://localhost:3402/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{"model": "nvidia/nemotron-3-nano-30b-a3b", "messages": [{"role":"user","content":"hi"}], "stream": true}'
-```
-
-An upstream without its API key set in `.env` reports
-`"status": "disabled"` on `/models` and returns `503` if called directly.
-
-## Paying for inference
-
-Every paid model has its own route: `POST /paid/<slug>/chat/completions`,
-where `<slug>` is the model id with `/` replaced by `-`
-(`qwen/qwen3.7-max` → `qwen-qwen3.7-max`). `GET /models` reports the exact
-slug and price for each model.
-
-```bash
-curl -i http://localhost:3402/paid/gpt-5-mini/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{"messages": [{"role":"user","content":"hi"}], "max_tokens": 20}'
-# → 402, with a `payment-required` header carrying price/asset/payTo.
-#   Attach a signed payment and retry to get served.
-```
-
-[`unirouter-cli`](https://www.npmjs.com/package/unirouter-cli) (`cli/` in
-this repo) signs and retries the 402 from your wallet:
-
-```bash
-npm install -g unirouter-cli
-export WALLET_PRIVATE_KEY=0x...   # USDC on Monad mainnet; no MON needed —
-                                   # the facilitator covers settlement gas
-unirouter-cli chat "hello" --model gpt-5-mini   # defaults to the live endpoint above
-```
-
-Settlement is on Monad mainnet (`eip155:143`) via `@x402/evm`; `payTo` is
-the operator's wallet, `asset` is USDC.
-
-## Pricing
-
-The local model charges a flat $0.0001 per request. Every other paid
-model charges a flat **prepay-max** estimate — 500 prompt tokens + 1000
-completion tokens at that model's real rate, charged upfront regardless
-of actual usage — since price is set before the request body is
-available to the payment layer.
-
-## Roadmap
-
-| Phase | Status |
-|---|---|
-| Serve — vLLM + gpt-oss-20b, OpenAI-compatible, streaming | done |
-| Route — 19 models, 8 upstream tiers, health/rate-limit gating | done |
-| Pay — x402 on Monad mainnet, per-model gating, CLI client | done |
-| Pay — per-token pricing, additional EVM chains | in progress |
-| List — feed.json entry on the Monad API Hub | not started |
+Upstreams without an API key report `"status": "disabled"` on `/models`
+and return `503` if called. Pricing, the upstream table, and the
+`fee_bps` markup (currently `0`) live in `router/src/config.ts`.

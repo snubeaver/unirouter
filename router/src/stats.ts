@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname } from "node:path";
 
 const DATA_FILE = new URL("../data/payments.jsonl", import.meta.url).pathname;
@@ -84,7 +84,25 @@ function computeByDay(records: PaymentRecord[]): Stats["by_day"] {
   return result;
 }
 
+// /dashboard is public and the payment log grows without bound, so stats
+// are cached and recomputed only when either data file changes size —
+// otherwise every dashboard hit would re-parse the full log.
+let statsCache: { key: string; stats: Stats } | null = null;
+
+function cacheKey(): string {
+  const size = (path: string) => (existsSync(path) ? statSync(path).size : 0);
+  return `${size(DATA_FILE)}:${size(RECONCILIATION_FILE)}`;
+}
+
 export function readStats(): Stats {
+  const key = cacheKey();
+  if (statsCache?.key === key) return statsCache.stats;
+  const stats = computeStats();
+  statsCache = { key, stats };
+  return stats;
+}
+
+function computeStats(): Stats {
   const reconciliations = readReconciliations();
   const unattributed = reconciliations.reduce((sum, r) => sum + r.amount_usd, 0);
 
