@@ -8,8 +8,8 @@ credential.
 
 > **Status: experimental.** Not a Monad Foundation product.
 
-**Live endpoint:** `https://geralyn-phototelegraphic-greta.ngrok-free.dev`
-([dashboard](https://geralyn-phototelegraphic-greta.ngrok-free.dev/dashboard))
+**Live endpoint:** `https://unirouter-monad.xyz`
+([dashboard](https://unirouter-monad.xyz/dashboard))
 
 [![npm](https://img.shields.io/npm/v/unirouter-cli.svg?logo=npm)](https://www.npmjs.com/package/unirouter-cli)
 [![npm downloads](https://img.shields.io/npm/dm/unirouter-cli.svg)](https://www.npmjs.com/package/unirouter-cli)
@@ -36,7 +36,7 @@ USDC settlement.
 Free models need no wallet:
 
 ```bash
-curl https://geralyn-phototelegraphic-greta.ngrok-free.dev/v1/chat/completions \
+curl https://unirouter-monad.xyz/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model": "nvidia/nemotron-3-nano-30b-a3b", "messages": [{"role":"user","content":"hi"}], "stream": true}'
 ```
@@ -90,7 +90,7 @@ Paid routes speak standard x402 v2, so any x402 client works — not just
 the CLI:
 
 ```bash
-curl -i https://geralyn-phototelegraphic-greta.ngrok-free.dev/paid/gpt-5-mini/chat/completions \
+curl -i https://unirouter-monad.xyz/paid/gpt-5-mini/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"messages": [{"role":"user","content":"hi"}], "max_tokens": 20}'
 ```

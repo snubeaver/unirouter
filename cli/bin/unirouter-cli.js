@@ -4,7 +4,7 @@ import { ExactEvmScheme } from "@x402/evm";
 import { privateKeyToAccount } from "viem/accounts";
 
 const MONAD_MAINNET = "eip155:143";
-const DEFAULT_URL = "https://geralyn-phototelegraphic-greta.ngrok-free.dev";
+const DEFAULT_URL = "https://unirouter-monad.xyz";
 
 function printHelp() {
   console.log(`unirouter-cli chat <message> [options]
