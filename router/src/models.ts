@@ -1,4 +1,4 @@
-import { DEFAULT_MAX_OUTPUT_TOKENS, FEE_BPS, LOCAL_MODEL, UPSTREAMS, isUpstreamEnabled } from "./config.js";
+import { DEFAULT_MAX_OUTPUT_TOKENS, FEE_BPS, UNIROUTER_MODEL, UPSTREAMS, isUpstreamEnabled } from "./config.js";
 import { PAYABLE_MODELS, priceForRequest } from "./payment.js";
 
 function paymentInfo(modelId: string) {
@@ -12,9 +12,9 @@ function paymentInfo(modelId: string) {
   };
 }
 
-async function isLocalHealthy(): Promise<boolean> {
+async function isUniRouterModelHealthy(): Promise<boolean> {
   try {
-    const res = await fetch(`${LOCAL_MODEL.base_url}/health`, {
+    const res = await fetch(`${UNIROUTER_MODEL.base_url}/health`, {
       signal: AbortSignal.timeout(1500),
     });
     return res.ok;
@@ -29,17 +29,17 @@ function withFee(perTokenUsd: string): string {
 }
 
 export async function buildModelsResponse() {
-  const localAvailable = await isLocalHealthy();
+  const unirouterAvailable = await isUniRouterModelHealthy();
 
   const data = [
     {
-      id: LOCAL_MODEL.id,
+      id: UNIROUTER_MODEL.id,
       object: "model",
-      context_length: LOCAL_MODEL.context_length,
-      pricing: LOCAL_MODEL.pricing, // fixed schedule, not subject to fee_bps
-      top_provider: { tier: "local" },
-      status: localAvailable ? "available" : "unavailable",
-      payment: paymentInfo(LOCAL_MODEL.id),
+      context_length: UNIROUTER_MODEL.context_length,
+      pricing: UNIROUTER_MODEL.pricing, // fixed schedule, not subject to fee_bps
+      top_provider: { tier: "unirouter" },
+      status: unirouterAvailable ? "available" : "unavailable",
+      payment: paymentInfo(UNIROUTER_MODEL.id),
     },
     ...UPSTREAMS.map((u) => {
       const enabled = isUpstreamEnabled(u);

@@ -4,7 +4,9 @@
 
 export const FEE_BPS = 0; // never hardcode a nonzero fee elsewhere; change only here
 
-export const LOCAL_MODEL = {
+// UniRouter's own serving node: vLLM on our hardware, reached over
+// localhost:8000 from the router process.
+export const UNIROUTER_MODEL = {
   id: "openai/gpt-oss-20b",
   context_length: 32768,
   base_url: "http://localhost:8000",
@@ -65,15 +67,15 @@ export function upstreamPriceUsd(cost: { prompt: string; completion: string }, m
   return raw * (1 + FEE_BPS / 10_000);
 }
 
-// Local model: the published $0.0001 floor covers requests up to the
-// default output budget; only output beyond that accrues per-token.
-export function localPriceUsd(maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS): number {
-  const floor = Number(LOCAL_MODEL.pricing.request);
-  const extra = Math.max(0, maxOutputTokens - DEFAULT_MAX_OUTPUT_TOKENS) * Number(LOCAL_MODEL.pricing.completion);
+// UniRouter's own model: the published $0.0001 floor covers requests up
+// to the default output budget; only output beyond that accrues per-token.
+export function unirouterPriceUsd(maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS): number {
+  const floor = Number(UNIROUTER_MODEL.pricing.request);
+  const extra = Math.max(0, maxOutputTokens - DEFAULT_MAX_OUTPUT_TOKENS) * Number(UNIROUTER_MODEL.pricing.completion);
   return floor + extra;
 }
 
-export type UpstreamTier = "local" | "beta-free" | "paid";
+export type UpstreamTier = "unirouter" | "beta-free" | "paid";
 export type ProviderFormat = "openai-compatible" | "anthropic-native";
 
 export interface UpstreamEntry {
@@ -328,7 +330,7 @@ export const UPSTREAMS: UpstreamEntry[] = [
   // /v1/chat/completions.
   //
   // "openai/gpt-oss-20b" is also in this catalog but is not routed here:
-  // it collides with LOCAL_MODEL's id, and serving our own model's
+  // it collides with UNIROUTER_MODEL's id, and serving our own model's
   // requests off NVIDIA's free dev tier would violate that tier's terms
   // (dev/eval only, not for production traffic) and contradict running
   // inference on our own hardware.

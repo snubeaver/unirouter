@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.svg" alt="UniRouter logo" width="96"></p>
+
 # UniRouter
 
 **An inference router for anyone who can pay via x402.**
@@ -6,9 +8,9 @@ One OpenAI-compatible endpoint, 19 models, per-request USDC pricing on
 Monad mainnet. No signup, no API key — a funded wallet is the only
 credential.
 
-> **Status: experimental.** Not a Monad Foundation product.
+> UniRouter is an independent project, not a Monad Foundation product.
 
-**Live endpoint:** `https://unirouter-monad.xyz`
+**Live service:** [unirouter-monad.xyz](https://unirouter-monad.xyz)
 ([dashboard](https://unirouter-monad.xyz/dashboard))
 
 [![npm](https://img.shields.io/npm/v/unirouter-cli.svg?logo=npm)](https://www.npmjs.com/package/unirouter-cli)
@@ -17,7 +19,7 @@ credential.
 [![Hono](https://img.shields.io/badge/Hono-E36002?logo=hono&logoColor=white)](https://hono.dev/)
 [![vLLM](https://img.shields.io/badge/vLLM-Metal-8A2BE2)](https://github.com/vllm-project/vllm)
 [![x402](https://img.shields.io/badge/x402-Monad%20mainnet-brightgreen)](https://github.com/x402-foundation/x402)
-[![status](https://img.shields.io/badge/status-experimental-yellow)]()
+[![status](https://img.shields.io/badge/status-live-brightgreen)](https://unirouter-monad.xyz)
 
 ---
 
@@ -62,7 +64,7 @@ price scales with the budget you buy. Input is covered up to 2000 tokens
 
 | Model | Provider | Context | Price / request (default) | Rate basis (in / out, $/1M) |
 |---|---|---|---|---|
-| `openai/gpt-oss-20b` | local | 32K | **$0.0001** | $0.13 out beyond default |
+| `openai/gpt-oss-20b` | UniRouter | 32K | **$0.0001** | $0.13 out beyond default |
 | `deepseek-v4-flash` | DeepSeek | 1M | $0.00056 | $0.14 / $0.28 |
 | `deepseek-v4-pro` | DeepSeek | 1M | $0.00174 | $0.43 / $0.87 |
 | `gpt-5-mini` | OpenAI | 400K | $0.0025 | $0.25 / $2.00 |
@@ -112,9 +114,9 @@ payment authorization goes over the wire.
 
 ## Self-hosting
 
-The router is a single Node process that proxies to a local
-[vLLM](https://github.com/vllm-project/vllm) instance and seven upstream
-providers — it runs no models itself.
+The router is a single Node process that proxies to its own
+[vLLM](https://github.com/vllm-project/vllm) serving node and seven
+upstream providers — the router process runs no models itself.
 
 ```bash
 cd router

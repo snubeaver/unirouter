@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/snubeaver/unirouter/main/assets/logo.svg" alt="UniRouter logo" width="96"></p>
+
 # unirouter-cli
 
 Pay [UniRouter](https://github.com/snubeaver/unirouter) for inference with a
@@ -27,8 +29,8 @@ from `GET /models` on that instance (default `openai-gpt-oss-20b`).
 4. The facilitator verifies and settles the payment on-chain, then the
    request is served.
 
-The private key stays local; only a signed, request-scoped payment
-authorization is sent over the network.
+The private key never leaves your machine; only a signed, request-scoped
+payment authorization is sent over the network.
 
 ## Commands
 

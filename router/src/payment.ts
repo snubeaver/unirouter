@@ -3,12 +3,12 @@ import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { HTTPFacilitatorClient } from "@x402/core/server";
 import {
   DEFAULT_CHAIN,
-  LOCAL_MODEL,
+  UNIROUTER_MODEL,
   UPSTREAMS,
   UpstreamEntry,
   clampOutputTokens,
-  localPriceUsd,
   toSlug,
+  unirouterPriceUsd,
   upstreamPriceUsd,
 } from "./config.js";
 
@@ -22,20 +22,20 @@ const resourceServer = new x402ResourceServer(facilitatorClient).register(DEFAUL
 export interface PayableModel {
   slug: string;
   id: string; // real model id to forward to the proxy layer
-  entry: UpstreamEntry | null; // null for the local model
+  entry: UpstreamEntry | null; // null for UniRouter's own model
 }
 
 // Every paid (non-beta-free) model is payable. beta-free entries are
 // deliberately excluded: there's no real cost to protect, so they stay
 // on the open route instead of adding payment friction for nothing.
 export const PAYABLE_MODELS: PayableModel[] = [
-  { slug: toSlug(LOCAL_MODEL.id), id: LOCAL_MODEL.id, entry: null },
+  { slug: toSlug(UNIROUTER_MODEL.id), id: UNIROUTER_MODEL.id, entry: null },
   ...UPSTREAMS.filter((u) => u.tier === "paid" && u.cost).map((u) => ({ slug: toSlug(u.id), id: u.id, entry: u })),
 ];
 
 export function priceForRequest(model: PayableModel, maxTokensHeader: string | undefined): number {
   const outputTokens = clampOutputTokens(maxTokensHeader);
-  return model.entry ? upstreamPriceUsd(model.entry.cost!, outputTokens) : localPriceUsd(outputTokens);
+  return model.entry ? upstreamPriceUsd(model.entry.cost!, outputTokens) : unirouterPriceUsd(outputTokens);
 }
 
 export function paidModelsPaymentMiddleware() {
@@ -59,7 +59,7 @@ export function paidModelsPaymentMiddleware() {
       },
       description: m.entry
         ? `Per-request access to ${m.id} via ${m.entry.provider}`
-        : `Per-request access to ${m.id} on local hardware`,
+        : `Per-request access to ${m.id} served by UniRouter`,
     };
   }
 

@@ -5,11 +5,12 @@ try {
 }
 
 import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { buildModelsResponse } from "./models.js";
 import {
-  LOCAL_MODEL,
+  UNIROUTER_MODEL,
   MAX_OUTPUT_TOKENS_CEILING,
   MAX_REQUEST_BODY_BYTES,
   PREPAY_ASSUMED_PROMPT_TOKENS,
@@ -23,6 +24,7 @@ import { checkRateLimit } from "./rate-limit.js";
 import { PAYABLE_MODELS, paidModelsPaymentMiddleware, priceForRequest } from "./payment.js";
 import { recordPayment, readStats } from "./stats.js";
 import { renderDashboard } from "./dashboard.js";
+import { renderLanding } from "./landing.js";
 
 const app = new Hono();
 
@@ -47,11 +49,14 @@ app.get("/models", async (c) => {
   return c.json(body);
 });
 
+app.get("/", (c) => c.html(renderLanding(readStats())));
 app.get("/dashboard", (c) => c.html(renderDashboard(readStats())));
+app.use("/fonts/*", serveStatic({ root: "./public" }));
+app.use("/favicon.svg", serveStatic({ path: "./public/favicon.svg" }));
 
-async function isLocalHealthy(): Promise<boolean> {
+async function isUniRouterModelHealthy(): Promise<boolean> {
   try {
-    const res = await fetch(`${LOCAL_MODEL.base_url}/health`, { signal: AbortSignal.timeout(1500) });
+    const res = await fetch(`${UNIROUTER_MODEL.base_url}/health`, { signal: AbortSignal.timeout(1500) });
     return res.ok;
   } catch {
     return false;
@@ -62,14 +67,14 @@ function proxyHeaders(upstream: Response): HeadersInit {
   return { "Content-Type": upstream.headers.get("content-type") ?? "application/json" };
 }
 
-async function proxyToLocal(body: unknown): Promise<Response> {
-  if (!(await isLocalHealthy())) {
-    return new Response(JSON.stringify({ error: { message: "local model unavailable" } }), {
+async function proxyToUniRouterModel(body: unknown): Promise<Response> {
+  if (!(await isUniRouterModelHealthy())) {
+    return new Response(JSON.stringify({ error: { message: `${UNIROUTER_MODEL.id} is temporarily unavailable` } }), {
       status: 503,
       headers: { "Content-Type": "application/json" },
     });
   }
-  const upstream = await fetch(`${LOCAL_MODEL.base_url}/v1/chat/completions`, {
+  const upstream = await fetch(`${UNIROUTER_MODEL.base_url}/v1/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -196,9 +201,9 @@ app.use("/paid/:slug/chat/completions", async (c, next) => {
   }
 });
 
-// Payment-gated entry point: every paid model (local hardware and every
-// paid upstream) has its own flat-priced route by slug. See payment.ts
-// for price derivation.
+// Payment-gated entry point: every paid model (UniRouter's own serving
+// node and every paid upstream) has its own flat-priced route by slug.
+// See payment.ts for price derivation.
 app.use("/paid/*", paidModelsPaymentMiddleware());
 app.post("/paid/:slug/chat/completions", async (c) => {
   const slug = c.req.param("slug");
@@ -214,15 +219,15 @@ app.post("/paid/:slug/chat/completions", async (c) => {
     body.max_tokens = clampOutputTokens(c.req.header("x-max-tokens"));
   }
   if (!model.entry) {
-    return proxyToLocal({ ...body, model: LOCAL_MODEL.id });
+    return proxyToUniRouterModel({ ...body, model: UNIROUTER_MODEL.id });
   }
   return proxyToUpstream(model.entry, { ...body, model: model.id });
 });
 
 // Open, unauthenticated route — deliberately restricted to `beta-free`
 // models only. There's no real cost to protect on those, so payment
-// friction would be pointless; everything else (local hardware, every
-// paid upstream) must go through /paid/<slug>/chat/completions instead.
+// friction would be pointless; everything else (UniRouter's own serving
+// node, every paid upstream) must go through /paid/<slug>/chat/completions.
 app.post("/v1/chat/completions", async (c) => {
   const body = await readJsonBody(c);
   if (!body) {

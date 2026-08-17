@@ -16,7 +16,7 @@ on the command line, it ends up in your shell history.
 Options:
   --url <url>          Router base URL (default: ${DEFAULT_URL})
   --model <slug>       Model slug to pay for, from GET <url>/models
-                        (default: openai-gpt-oss-20b, the local model)
+                        (default: openai-gpt-oss-20b, served by UniRouter)
   --max-tokens <n>     Output token budget to buy (default: 200, max 32768).
                         The per-request price scales with this.
 
