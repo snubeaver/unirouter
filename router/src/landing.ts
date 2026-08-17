@@ -127,14 +127,6 @@ export function renderLanding(stats: Stats): string {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@300;400;500;700&display=swap">
 <style>
-  @font-face {
-    font-family: 'Britti Sans';
-    src: url('/fonts/britti-sans-variable.woff2') format('woff2-variations'),
-         url('/fonts/britti-sans-variable.woff2') format('woff2');
-    font-weight: 100 900;
-    font-style: normal;
-    font-display: swap;
-  }
   :root {
     --mds-purple-300: #A294FF;
     --mds-purple-400: #8270FF;
@@ -156,7 +148,7 @@ export function renderLanding(stats: Stats): string {
     --fg-tertiary: var(--mds-grey-600);
     --fg-inverse: #000000;
     --status-success-fg: #22C55E;
-    --font-display: 'Britti Sans', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Inter', ui-sans-serif, system-ui, sans-serif;
     --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
     --font-mono: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   }

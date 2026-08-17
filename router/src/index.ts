@@ -51,7 +51,6 @@ app.get("/models", async (c) => {
 
 app.get("/", (c) => c.html(renderLanding(readStats())));
 app.get("/dashboard", (c) => c.html(renderDashboard(readStats())));
-app.use("/fonts/*", serveStatic({ root: "./public" }));
 app.use("/favicon.svg", serveStatic({ path: "./public/favicon.svg" }));
 
 async function isUniRouterModelHealthy(): Promise<boolean> {
