@@ -43,13 +43,28 @@ function fmtPerMillion(perToken: string): string {
 }
 
 const LOGO_SVG = `<svg width="24" height="24" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-  <g fill="#6E54FF">
+  <g fill="#FFAE45">
     <rect x="14" y="42" width="6" height="12" rx="2"/><rect x="24" y="42" width="6" height="12" rx="2"/>
     <rect x="34" y="42" width="6" height="12" rx="2"/><rect x="43" y="42" width="6" height="12" rx="2"/>
     <rect x="8" y="24" width="44" height="22" rx="11"/><rect x="38" y="18" width="21" height="20" rx="8"/>
     <circle cx="43" cy="17" r="4"/><circle cx="53" cy="17" r="4"/>
   </g>
   <circle cx="50" cy="26" r="1.8" fill="#000000"/>
+</svg>`;
+
+// Hero mark: the capybara at 300px with three routing lines sweeping onto
+// its back (route-sweep keyframes, staggered starts — from the design).
+const HERO_MARK_SVG = `<svg class="hero-mark" width="300" height="300" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="UniRouter">
+  <g fill="#FFAE45">
+    <rect x="14" y="42" width="6" height="12" rx="2"/><rect x="24" y="42" width="6" height="12" rx="2"/>
+    <rect x="34" y="42" width="6" height="12" rx="2"/><rect x="43" y="42" width="6" height="12" rx="2"/>
+    <rect x="8" y="24" width="44" height="22" rx="11"/><rect x="38" y="18" width="21" height="20" rx="8"/>
+    <circle cx="43" cy="17" r="4"/><circle cx="53" cy="17" r="4"/>
+  </g>
+  <circle cx="50" cy="26" r="1.8" fill="#000000"/>
+  <path class="route-line" d="M2 13 H20" pathLength="1" stroke="#FFD199" stroke-width="2" stroke-linecap="square" stroke-dasharray="1"/>
+  <path class="route-line" d="M2 7 H30" pathLength="1" stroke="#FFD199" stroke-width="2" stroke-linecap="square" stroke-dasharray="1" style="animation-delay: 0.35s;"/>
+  <path class="route-line" d="M2 1 H14" pathLength="1" stroke="#FFD199" stroke-width="2" stroke-linecap="square" stroke-dasharray="1" style="animation-delay: 0.7s;"/>
 </svg>`;
 
 const ROUTES = [
@@ -128,9 +143,10 @@ export function renderLanding(stats: Stats): string {
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@300;400;500;700&display=swap">
 <style>
   :root {
-    --mds-purple-300: #A294FF;
-    --mds-purple-400: #8270FF;
-    --mds-purple-500: #6E54FF;
+    --accent: #FFAE45;
+    --accent-hover: #FFC170;
+    --accent-soft: #FFD199;
+    --accent-border-subtle: rgba(255,174,69,0.40);
     --mds-grey-50: #FBFAF9;
     --mds-grey-400: #C7C7D6;
     --mds-grey-600: #727285;
@@ -142,7 +158,6 @@ export function renderLanding(stats: Stats): string {
     --bg-subtle: var(--mds-grey-950);
     --border: var(--mds-grey-900);
     --border-strong: var(--mds-grey-700);
-    --border-accent-subtle: rgba(110,84,255,0.60);
     --fg: var(--mds-grey-50);
     --fg-secondary: var(--mds-grey-400);
     --fg-tertiary: var(--mds-grey-600);
@@ -155,8 +170,14 @@ export function renderLanding(stats: Stats): string {
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); }
-  a { color: var(--mds-purple-400); text-decoration: none; }
-  a:hover { color: var(--mds-purple-300); }
+  a { color: var(--accent-hover); text-decoration: none; }
+  a:hover { color: var(--accent-soft); }
+  @keyframes route-sweep {
+    0%   { stroke-dashoffset: 1; }
+    38%  { stroke-dashoffset: 0; }
+    62%  { stroke-dashoffset: 0; }
+    100% { stroke-dashoffset: -1; }
+  }
 
   .mds-h1 { font-family: var(--font-display); font-weight: 500; font-size: 64px; line-height: 72px; letter-spacing: -0.02em; }
   .mds-h2 { font-family: var(--font-display); font-weight: 500; font-size: 48px; line-height: 56px; letter-spacing: -0.015em; }
@@ -188,16 +209,19 @@ export function renderLanding(stats: Stats): string {
   .btn-solid {
     display: inline-flex; align-items: center; gap: 8px;
     font-family: var(--font-body); font-size: 14px; font-weight: 500;
-    color: var(--fg-inverse); background: var(--mds-purple-500);
+    color: var(--fg-inverse); background: var(--accent);
     padding: 8px 14px; border-radius: 4px;
   }
-  .btn-solid:hover { background: var(--mds-purple-400); color: var(--fg-inverse); }
+  .btn-solid:hover { background: var(--accent-hover); color: var(--fg-inverse); }
 
   section { padding: 96px 80px; border-bottom: 1px solid var(--border); }
   section.hero {
     padding: 96px 80px 80px;
-    background-image: radial-gradient(120% 90% at 15% -10%, rgba(110,84,255,0.22) 0%, rgba(0,0,0,0) 60%);
+    background-image: radial-gradient(120% 90% at 15% -10%, rgba(255,174,69,0.16) 0%, rgba(0,0,0,0) 60%);
   }
+  .hero-grid { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 64px; align-items: end; }
+  .hero-mark { display: block; }
+  .hero-mark .route-line { animation: route-sweep 2.6s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
   .hero h1 { margin: 0; max-width: 20ch; text-wrap: pretty; }
   .hero .sub { color: var(--fg-secondary); max-width: 62ch; margin: 24px 0 0; }
   .cta-row { display: flex; gap: 12px; margin-top: 40px; flex-wrap: wrap; }
@@ -205,10 +229,10 @@ export function renderLanding(stats: Stats): string {
     display: inline-flex; align-items: center; gap: 8px;
     font-size: 15px; font-weight: 500; padding: 12px 20px; border-radius: 4px;
   }
-  .cta-primary { color: var(--fg-inverse); background: var(--mds-purple-500); }
-  .cta-primary:hover { background: var(--mds-purple-400); color: var(--fg-inverse); }
+  .cta-primary { color: var(--fg-inverse); background: var(--accent); }
+  .cta-primary:hover { background: var(--accent-hover); color: var(--fg-inverse); }
   .cta-outline { color: var(--fg); border: 1px solid var(--border-strong); }
-  .cta-outline:hover { border-color: var(--mds-purple-400); color: var(--mds-purple-300); }
+  .cta-outline:hover { border-color: var(--accent-hover); color: var(--accent-soft); }
   .cta-ghost { color: var(--fg-secondary); border: 1px solid var(--border); }
   .cta-ghost:hover { color: var(--fg); border-color: var(--border-strong); }
 
@@ -234,8 +258,8 @@ export function renderLanding(stats: Stats): string {
   .route-desc { color: var(--fg-secondary); max-width: 46ch; }
   .method {
     font-family: var(--font-mono); font-size: 12px; line-height: 16px;
-    letter-spacing: 0.08em; text-transform: uppercase; color: var(--mds-purple-300);
-    border: 1px solid var(--border-accent-subtle); border-radius: 4px; padding: 3px 7px;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-soft);
+    border: 1px solid var(--accent-border-subtle); border-radius: 4px; padding: 3px 7px;
   }
 
   .table-scroll { overflow-x: auto; }
@@ -249,14 +273,14 @@ export function renderLanding(stats: Stats): string {
   .model-head span { color: var(--fg-tertiary); }
   .model-id { color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .free-tag { letter-spacing: 0.08em; text-transform: uppercase; color: var(--status-success-fg); }
-  .price { color: var(--mds-purple-300); }
+  .price { color: var(--accent-soft); }
   .footnote { color: var(--fg-tertiary); margin: 20px 0 0; max-width: 80ch; }
   code.mds-mono-sm { color: inherit; }
 
   section.payment { background: var(--bg-subtle); }
   .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
   .step { border-top: 1px solid var(--border-strong); padding-top: 20px; }
-  .step .n { color: var(--mds-purple-300); margin-bottom: 12px; }
+  .step .n { color: var(--accent-soft); margin-bottom: 12px; }
   .step p { color: var(--fg-secondary); margin: 0; }
   section.payment .code-card { background: var(--bg); margin-top: 48px; }
 
@@ -270,6 +294,8 @@ export function renderLanding(stats: Stats): string {
     .mds-h1 { font-size: 44px; line-height: 52px; }
     .mds-h2 { font-size: 34px; line-height: 42px; }
     .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .hero-grid { grid-template-columns: 1fr; gap: 40px; }
+    .hero-mark { width: 160px; height: 160px; }
     .split { grid-template-columns: 1fr; gap: 32px; }
     .route-grid { grid-template-columns: 1fr; }
     .steps { grid-template-columns: 1fr; }
@@ -291,13 +317,18 @@ export function renderLanding(stats: Stats): string {
 
 <section class="hero">
   <div class="wrap">
-    <div class="mds-eyebrow" style="margin-bottom: 24px;">Inference router · x402 · Monad mainnet</div>
-    <h1 class="mds-h1">Pay for inference without an API key</h1>
-    <p class="mds-body-lg sub">One OpenAI-compatible endpoint, ${totalModels} models, per-request USDC pricing on Monad mainnet. No signup, no API key — a funded wallet is the only credential.</p>
-    <div class="cta-row">
-      <a class="cta cta-primary" href="/dashboard">Open dashboard <span aria-hidden="true">→</span></a>
-      <a class="cta cta-outline" href="/models">GET /models</a>
-      <a class="cta cta-ghost" href="https://github.com/snubeaver/unirouter">GitHub</a>
+    <div class="hero-grid">
+      <div>
+        <div class="mds-eyebrow" style="margin-bottom: 24px;">Inference router · x402 · Monad mainnet</div>
+        <h1 class="mds-h1">Pay for inference without an API key</h1>
+        <p class="mds-body-lg sub">One OpenAI-compatible endpoint, ${totalModels} models, per-request USDC pricing on Monad mainnet. No signup, no API key — a funded wallet is the only credential.</p>
+        <div class="cta-row">
+          <a class="cta cta-primary" href="/dashboard">Open dashboard <span aria-hidden="true">→</span></a>
+          <a class="cta cta-outline" href="/models">GET /models</a>
+          <a class="cta cta-ghost" href="https://github.com/snubeaver/unirouter">GitHub</a>
+        </div>
+      </div>
+      ${HERO_MARK_SVG}
     </div>
     <div class="stat-grid">
       <div class="stat-cell">
