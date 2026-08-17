@@ -202,6 +202,7 @@ export function renderLanding(stats: Stats): string {
     background: rgba(0,0,0,0.72); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   }
   .brand { display: flex; align-items: center; gap: 10px; }
+  a.brand, a.brand:hover { color: var(--fg); }
   .brand-name { font-family: var(--font-display); font-weight: 500; font-size: 17px; letter-spacing: -0.01em; }
   nav.site { display: flex; align-items: center; gap: 24px; }
   nav.site a.nav-link { color: var(--fg-secondary); font-size: 14px; }
@@ -306,7 +307,7 @@ export function renderLanding(stats: Stats): string {
 <body>
 
 <header class="site">
-  <div class="brand">${LOGO_SVG}<span class="brand-name">UniRouter</span></div>
+  <a class="brand" href="/">${LOGO_SVG}<span class="brand-name">UniRouter</span></a>
   <nav class="site">
     <a class="nav-link" href="#endpoints">Endpoints</a>
     <a class="nav-link" href="#models">Models</a>

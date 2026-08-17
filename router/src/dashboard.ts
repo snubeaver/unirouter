@@ -140,6 +140,7 @@ export function renderDashboard(stats: Stats): string {
     background: rgba(0,0,0,0.72); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   }
   .brand { display: flex; align-items: center; gap: 10px; }
+  a.brand, a.brand:hover { color: var(--fg); }
   .brand-name { font-family: var(--font-display); font-weight: 500; font-size: 17px; letter-spacing: -0.01em; }
   .crumb { font-family: var(--font-mono); font-size: 12px; line-height: 16px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-tertiary); margin-left: 8px; }
   nav.site { display: flex; align-items: center; gap: 24px; }
@@ -208,7 +209,7 @@ export function renderDashboard(stats: Stats): string {
 <body>
 
 <header class="site">
-  <div class="brand">${LOGO_SVG}<span class="brand-name">UniRouter</span><span class="crumb">› Dashboard</span></div>
+  <a class="brand" href="/">${LOGO_SVG}<span class="brand-name">UniRouter</span><span class="crumb">› Dashboard</span></a>
   <nav class="site">
     <a class="nav-link" href="/">Overview</a>
     <a class="nav-link" href="/models">GET /models</a>
