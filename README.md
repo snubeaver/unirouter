@@ -64,7 +64,7 @@ price scales with the budget you buy. Input is covered up to 2000 tokens
 
 | Model | Provider | Context | Price / request (default) | Rate basis (in / out, $/1M) |
 |---|---|---|---|---|
-| `openai/gpt-oss-20b` | UniRouter | 32K | **$0.0001** | $0.13 out beyond default |
+| `openai/gpt-oss-20b` | UniRouter | 32K | **$0.0001** | $0 in · $0.13/1M out beyond 1000 |
 | `deepseek-v4-flash` | DeepSeek | 1M | $0.00056 | $0.14 / $0.28 |
 | `deepseek-v4-pro` | DeepSeek | 1M | $0.00174 | $0.43 / $0.87 |
 | `gpt-5-mini` | OpenAI | 400K | $0.0025 | $0.25 / $2.00 |

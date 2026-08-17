@@ -83,7 +83,7 @@ export function renderLanding(stats: Stats): string {
     price: priceForRequest(m, undefined),
     rate: m.entry
       ? `${fmtPerMillion(m.entry.cost!.prompt)} / ${fmtPerMillion(m.entry.cost!.completion)}`
-      : `${fmtPerMillion(UNIROUTER_MODEL.pricing.completion)} out beyond default`,
+      : `$0 in · ${fmtPerMillion(UNIROUTER_MODEL.pricing.completion)}/1M out beyond ${DEFAULT_MAX_OUTPUT_TOKENS}`,
   })).sort((a, b) => a.price - b.price);
   const totalModels = freeModels.length + paidModels.length;
   const inputKb = Math.round(MAX_REQUEST_BODY_BYTES / 1024);
