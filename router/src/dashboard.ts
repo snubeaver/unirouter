@@ -1,3 +1,6 @@
+// Dashboard at GET /dashboard: x402 settlement activity rendered from the
+// router's own payment log. Same visual system as landing.ts (dark MDS
+// tokens, orange accent); charts are plain CSS flex bars, no client JS.
 import type { Stats } from "./stats.js";
 
 function escapeHtml(s: string): string {
@@ -8,80 +11,77 @@ function fmtUsd(n: number): string {
   return `$${n.toFixed(4)}`;
 }
 
-// Requests-per-day and wallets-per-day differ by orders of magnitude
-// (thousands vs. single digits) — a shared axis flattens the smaller
-// series to an invisible line at the bottom, so each gets its own scale
-// instead of one combined chart.
-function miniLineChart(byDay: Stats["by_day"], values: number[], colorVar: string, title: string): string {
-  const width = 780;
-  const height = 140;
-  const padLeft = 32;
-  const padRight = 16;
-  const padTop = 12;
-  const padBottom = 24;
-  const plotW = width - padLeft - padRight;
-  const plotH = height - padTop - padBottom;
+const LOGO_SVG = `<svg width="24" height="24" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <g fill="#FFAE45">
+    <rect x="14" y="42" width="6" height="12" rx="2"/><rect x="24" y="42" width="6" height="12" rx="2"/>
+    <rect x="34" y="42" width="6" height="12" rx="2"/><rect x="43" y="42" width="6" height="12" rx="2"/>
+    <rect x="8" y="24" width="44" height="22" rx="11"/><rect x="38" y="18" width="21" height="20" rx="8"/>
+    <circle cx="43" cy="17" r="4"/><circle cx="53" cy="17" r="4"/>
+  </g>
+  <circle cx="50" cy="26" r="1.8" fill="#000000"/>
+</svg>`;
 
-  const maxVal = Math.max(1, ...values);
-  const yTicks = 3;
-  const xFor = (i: number) => padLeft + (values.length === 1 ? plotW / 2 : (i / (values.length - 1)) * plotW);
-  const yFor = (v: number) => padTop + plotH - (v / maxVal) * plotH;
+// Daily bar chart: 4 y-axis ticks at thirds of the max, gridlines every
+// third of the 180px plot via repeating-linear-gradient, one flex bar per day.
+function dailyBarChart(title: string, byDay: Stats["by_day"], values: number[], color: string): string {
+  if (byDay.length === 0) {
+    return `
+      <div class="chart-card">
+        <div class="chart-head"><div class="mds-ui-mono-xs dimmer">${escapeHtml(title)}</div></div>
+        <p class="mds-body-sm empty">No requests yet.</p>
+      </div>`;
+  }
 
-  const gridlines = Array.from({ length: yTicks + 1 }, (_, i) => {
-    const v = Math.round((maxVal / yTicks) * i);
-    const y = yFor(v);
-    return `<line x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}" stroke="var(--gridline)" stroke-width="1"/>
-      <text x="${padLeft - 6}" y="${y + 3}" text-anchor="end" font-size="10" fill="var(--text-muted)">${v}</text>`;
-  }).join("");
-
+  const max = Math.max(1, ...values);
+  const ticks = [max, Math.round((max * 2) / 3), Math.round(max / 3), 0];
   const showEvery = Math.max(1, Math.ceil(byDay.length / 10));
-  const xLabels = byDay
+
+  const bars = values
+    .map(
+      (v) => `
+              <div class="bar-slot"><div class="bar" style="background: ${color}; height: ${((v / max) * 100).toFixed(1)}%;"></div></div>`,
+    )
+    .join("");
+  const labels = byDay
     .map((d, i) => {
-      if (i % showEvery !== 0 && i !== byDay.length - 1) return "";
-      return `<text x="${xFor(i)}" y="${height - 6}" text-anchor="middle" font-size="10" fill="var(--text-muted)">${d.date.slice(5)}</text>`;
+      const text = i % showEvery === 0 || i === byDay.length - 1 ? escapeHtml(d.date.slice(5)) : "";
+      return `<span class="mds-mono-xs bar-label">${text}</span>`;
     })
     .join("");
 
-  const points = values.map((v, i) => `${xFor(i)},${yFor(v)}`).join(" ");
-  const dots = values.map((v, i) => `<circle cx="${xFor(i)}" cy="${yFor(v)}" r="4" fill="${colorVar}"/>`).join("");
-
   return `
-    <p class="chart-title">${escapeHtml(title)}</p>
-    <svg viewBox="0 0 ${width} ${height}" class="line-chart" role="img" aria-label="${escapeHtml(title)} by day">
-      ${gridlines}
-      ${xLabels}
-      <polyline points="${points}" fill="none" stroke="${colorVar}" stroke-width="2"/>
-      ${dots}
-    </svg>`;
+      <div class="chart-card">
+        <div class="chart-head"><div class="mds-ui-mono-xs dimmer">${escapeHtml(title)}</div></div>
+        <div class="chart-grid">
+          <div class="y-axis">${ticks.map((t) => `<span class="mds-mono-xs">${t}</span>`).join("")}</div>
+          <div>
+            <div class="plot">${bars}
+            </div>
+            <div class="x-axis">${labels}</div>
+          </div>
+        </div>
+      </div>`;
 }
 
-function dailyCharts(byDay: Stats["by_day"]): string {
-  if (byDay.length === 0) {
-    return `<p class="empty">No requests yet.</p>`;
-  }
-  return (
-    miniLineChart(byDay, byDay.map((d) => d.requests), "var(--cat-1)", "Requests per day") +
-    miniLineChart(byDay, byDay.map((d) => d.unique_wallets), "var(--cat-2)", "Unique wallets per day")
-  );
-}
-
-function barChart(byModel: Stats["by_model"]): string {
+function modelRows(byModel: Stats["by_model"]): string {
   if (byModel.length === 0) {
-    return `<p class="empty">No requests yet.</p>`;
+    return `<p class="mds-body-sm empty" style="padding: 18px 24px;">No requests yet.</p>`;
   }
   const max = Math.max(...byModel.map((m) => m.count));
-  const rows = byModel
+  return byModel
     .map((m) => {
-      const pct = Math.max((m.count / max) * 100, 3);
+      const pct = Math.max((m.count / max) * 100, 0.5).toFixed(1);
       return `
-        <div class="bar-row">
-          <div class="bar-label">${escapeHtml(m.model)}</div>
-          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
-          <div class="bar-value">${m.count} · ${fmtUsd(m.volume_usd)}</div>
+        <div class="model-row">
+          <div class="model-cells">
+            <code class="mds-mono model-id">${escapeHtml(m.model)}</code>
+            <span class="mds-mono num">${m.count.toLocaleString("en-US")}</span>
+            <span class="mds-mono num volume">${fmtUsd(m.volume_usd)}</span>
+          </div>
+          <div class="track"><div class="fill" style="width: ${pct}%;"></div></div>
         </div>`;
     })
     .join("");
-  return `<div class="bar-chart">${rows}</div>`;
 }
 
 export function renderDashboard(stats: Stats): string {
@@ -91,121 +91,183 @@ export function renderDashboard(stats: Stats): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>UniRouter — Dashboard</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@300;400;500;700&display=swap">
 <style>
   :root {
-    color-scheme: light;
-    --surface-1: #fcfcfb;
-    --page: #f9f9f7;
-    --text-primary: #0b0b0b;
-    --text-secondary: #52514e;
-    --text-muted: #898781;
-    --gridline: #e1e0d9;
-    --baseline: #c3c2b7;
-    --border: rgba(11,11,11,0.10);
-    --seq-500: #256abf;
-    --seq-100: #cde2fb;
-    --cat-1: #2a78d6;
-    --cat-2: #eb6834;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      color-scheme: dark;
-      --surface-1: #1a1a19;
-      --page: #0d0d0d;
-      --text-primary: #ffffff;
-      --text-secondary: #c3c2b7;
-      --text-muted: #898781;
-      --gridline: #2c2c2a;
-      --baseline: #383835;
-      --border: rgba(255,255,255,0.10);
-      --seq-500: #3987e5;
-      --seq-100: #184f95;
-      --cat-1: #3987e5;
-      --cat-2: #d95926;
-    }
+    --accent: #FFAE45;
+    --accent-hover: #FFC170;
+    --accent-soft: #FFD199;
+    --mds-grey-50: #FBFAF9;
+    --mds-grey-400: #C7C7D6;
+    --mds-grey-600: #727285;
+    --mds-grey-700: #565666;
+    --mds-grey-900: #26262B;
+    --mds-grey-950: #0F0F12;
+    --bg: #000000;
+    --bg-subtle: var(--mds-grey-950);
+    --border: var(--mds-grey-900);
+    --border-strong: var(--mds-grey-700);
+    --fg: var(--mds-grey-50);
+    --fg-secondary: var(--mds-grey-400);
+    --fg-tertiary: var(--mds-grey-600);
+    --status-success-fg: #22C55E;
+    --font-display: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   }
   * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    background: var(--page);
-    color: var(--text-primary);
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    padding: 32px 20px 64px;
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); }
+  a { color: var(--accent-hover); text-decoration: none; }
+  a:hover { color: var(--accent-soft); }
+
+  .mds-h2 { font-family: var(--font-display); font-weight: 500; font-size: 48px; line-height: 56px; letter-spacing: -0.015em; }
+  .mds-body { font-family: var(--font-body); font-size: 16px; line-height: 24px; }
+  .mds-body-sm { font-family: var(--font-body); font-size: 14px; line-height: 20px; }
+  .mds-mono { font-family: var(--font-mono); font-size: 14px; line-height: 20px; }
+  .mds-mono-xs { font-family: var(--font-mono); font-size: 11px; line-height: 14px; }
+  .mds-ui-mono-xs { font-family: var(--font-mono); font-weight: 500; font-size: 9px; line-height: 11px; letter-spacing: 1.5px; text-transform: uppercase; }
+  .mds-eyebrow { font-family: var(--font-mono); font-weight: 500; font-size: 12px; line-height: 1; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-tertiary); }
+  .dimmer { color: var(--fg-tertiary); }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+
+  header.site {
+    position: sticky; top: 0; z-index: 10; height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,0.72); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   }
-  .wrap { max-width: 840px; margin: 0 auto; }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  .subtitle { color: var(--text-secondary); font-size: 14px; margin: 0 0 28px; }
-  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 32px; }
-  .stat-tile {
-    background: var(--surface-1);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px 18px;
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-name { font-family: var(--font-display); font-weight: 500; font-size: 17px; letter-spacing: -0.01em; }
+  .crumb { font-family: var(--font-mono); font-size: 12px; line-height: 16px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-tertiary); margin-left: 8px; }
+  nav.site { display: flex; align-items: center; gap: 24px; }
+  nav.site a.nav-link { color: var(--fg-secondary); font-size: 14px; }
+  nav.site a.nav-link:hover { color: var(--fg); }
+  .status-pill {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--status-success-fg); border: 1px solid var(--border); border-radius: 4px; padding: 5px 10px;
   }
-  .stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 6px; }
-  .stat-value { font-size: 28px; font-weight: 600; margin: 0; }
-  .section-title { font-size: 14px; color: var(--text-secondary); margin: 0 0 12px; font-weight: 600; }
-  .bar-chart { display: flex; flex-direction: column; gap: 10px; }
-  .bar-row { display: grid; grid-template-columns: 180px 1fr 130px; align-items: center; gap: 12px; }
-  .bar-label {
-    font-size: 13px; color: var(--text-secondary);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+
+  section { padding: 0 80px 40px; }
+  section.head { padding: 64px 80px 40px; }
+  section.head h1 { margin: 0 0 12px; }
+  section.head p { color: var(--fg-secondary); margin: 0; }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); }
+  .stat-cell { background: var(--bg); padding: 28px 24px; }
+  .stat-cell .v { font-family: var(--font-display); font-weight: 500; font-size: 48px; line-height: 56px; margin-top: 10px; }
+  .stat-cell .v.volume { color: var(--accent); }
+
+  .chart-grid-outer { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); }
+  .chart-card { background: var(--bg); padding: 28px 24px; min-width: 0; }
+  .chart-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 28px; }
+  .chart-grid { display: grid; grid-template-columns: 44px minmax(0,1fr); gap: 12px; }
+  .y-axis { display: flex; flex-direction: column; justify-content: space-between; height: 180px; }
+  .y-axis span { color: var(--fg-tertiary); text-align: right; }
+  .plot {
+    display: flex; align-items: flex-end; gap: 10px; height: 180px;
+    border-bottom: 1px solid var(--border-strong);
+    background-image: repeating-linear-gradient(to top, transparent 0 59px, var(--border) 59px 60px);
   }
-  .bar-track {
-    position: relative;
-    height: 18px;
-    background: var(--seq-100);
-    border-radius: 4px;
+  .bar-slot { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+  .bar { width: 100%; }
+  .x-axis { display: flex; gap: 10px; margin-top: 10px; }
+  .bar-label { flex: 1; min-width: 0; text-align: center; color: var(--fg-tertiary); overflow: hidden; }
+  .empty { color: var(--fg-tertiary); }
+
+  .model-table { border: 1px solid var(--border); overflow: hidden; }
+  .model-head, .model-cells { display: grid; grid-template-columns: minmax(0,1fr) 120px 120px; gap: 16px; align-items: baseline; }
+  .model-head { padding: 14px 24px; border-bottom: 1px solid var(--border); background: var(--bg-subtle); }
+  .model-head span { color: var(--fg-tertiary); }
+  .model-head .right { text-align: right; }
+  .model-row { padding: 18px 24px; border-bottom: 1px solid var(--border); }
+  .model-row:last-child { border-bottom: none; }
+  .model-id { color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .num { color: var(--fg); text-align: right; }
+  .num.volume { color: var(--accent-hover); }
+  .track { height: 4px; background: var(--bg-subtle); margin-top: 14px; }
+  .fill { height: 4px; background: var(--accent); }
+  .footnote { color: var(--fg-tertiary); margin: 20px 0 0; }
+
+  footer.site { padding: 48px 80px 64px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-end; gap: 32px; flex-wrap: wrap; }
+  footer.site p { color: var(--fg-tertiary); margin: 0; }
+  .foot-links { display: flex; gap: 24px; }
+
+  @media (max-width: 960px) {
+    section, section.head, footer.site { padding-left: 24px; padding-right: 24px; }
+    .mds-h2 { font-size: 34px; line-height: 42px; }
+    .stat-grid { grid-template-columns: 1fr; }
+    .chart-grid-outer { grid-template-columns: 1fr; }
+    nav.site a.nav-link { display: none; }
   }
-  .bar-fill {
-    position: absolute; left: 0; top: 0; bottom: 0;
-    background: var(--seq-500);
-    border-radius: 4px;
-    min-width: 4px;
-  }
-  .bar-value {
-    font-size: 12px;
-    color: var(--text-secondary);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-  .empty { color: var(--text-muted); font-size: 14px; }
-  .chart-title { font-size: 12px; color: var(--text-muted); margin: 0 0 4px; }
-  .line-chart { width: 100%; height: auto; margin-bottom: 20px; }
-  footer { margin-top: 40px; font-size: 12px; color: var(--text-muted); }
-  footer a { color: inherit; }
 </style>
 </head>
 <body>
+
+<header class="site">
+  <div class="brand">${LOGO_SVG}<span class="brand-name">UniRouter</span><span class="crumb">› Dashboard</span></div>
+  <nav class="site">
+    <a class="nav-link" href="/">Overview</a>
+    <a class="nav-link" href="/models">GET /models</a>
+    <span class="status-pill">████ Online</span>
+  </nav>
+</header>
+
+<section class="head">
   <div class="wrap">
-    <h1>UniRouter</h1>
-    <p class="subtitle">x402 settlement activity, live from the router's own payment log.</p>
-
-    <div class="stat-row">
-      <div class="stat-tile">
-        <p class="stat-label">Total requests</p>
-        <p class="stat-value">${stats.total_requests}</p>
-      </div>
-      <div class="stat-tile">
-        <p class="stat-label">Total volume</p>
-        <p class="stat-value">${fmtUsd(stats.total_volume_usd)}</p>
-      </div>
-      <div class="stat-tile">
-        <p class="stat-label">Unique wallets</p>
-        <p class="stat-value">${stats.unique_wallets}</p>
-      </div>
-    </div>
-
-    <p class="section-title">Requests &amp; unique wallets by day</p>
-    ${dailyCharts(stats.by_day)}
-
-    <p class="section-title">Requests by model</p>
-    ${barChart(stats.by_model)}
-
-    <footer>
-      Reflects settled x402 payments only. <a href="/models">GET /models</a> for the live catalog.
-    </footer>
+    <div class="mds-eyebrow" style="margin-bottom: 16px;">§ x402 settlement activity</div>
+    <h1 class="mds-h2">Live from the router's own payment log.</h1>
+    <p class="mds-body">Totals, the daily series, and the model breakdown are settled on-chain payments.</p>
   </div>
+</section>
+
+<section>
+  <div class="wrap stat-grid">
+    <div class="stat-cell">
+      <div class="mds-ui-mono-xs dimmer">Total requests</div>
+      <div class="v">${stats.total_requests.toLocaleString("en-US")}</div>
+    </div>
+    <div class="stat-cell">
+      <div class="mds-ui-mono-xs dimmer">Total volume</div>
+      <div class="v volume">${fmtUsd(stats.total_volume_usd)}</div>
+    </div>
+    <div class="stat-cell">
+      <div class="mds-ui-mono-xs dimmer">Unique wallets</div>
+      <div class="v">${stats.unique_wallets.toLocaleString("en-US")}</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap chart-grid-outer">${dailyBarChart("Requests per day", stats.by_day, stats.by_day.map((d) => d.requests), "var(--accent)")}${dailyBarChart("Unique wallets per day", stats.by_day, stats.by_day.map((d) => d.unique_wallets), "var(--accent-soft)")}
+  </div>
+</section>
+
+<section style="padding-bottom: 64px;">
+  <div class="wrap">
+    <div class="model-table">
+      <div class="model-head">
+        <span class="mds-ui-mono-xs">Requests by model</span>
+        <span class="mds-ui-mono-xs right">Requests</span>
+        <span class="mds-ui-mono-xs right">Volume</span>
+      </div>${modelRows(stats.by_model)}
+    </div>
+    <p class="mds-body-sm footnote">Reflects settled x402 payments only. <a href="/models">GET /models</a> for the live catalog.</p>
+  </div>
+</section>
+
+<footer class="site">
+  <p class="mds-body-sm">© 2026 UniRouter. All rights reserved.</p>
+  <div class="foot-links">
+    <a class="mds-body-sm" href="/">Overview</a>
+    <a class="mds-body-sm" href="https://github.com/snubeaver/unirouter">GitHub</a>
+    <a class="mds-body-sm" href="https://www.npmjs.com/package/unirouter-cli">npm · unirouter-cli</a>
+  </div>
+</footer>
+
 </body>
 </html>`;
 }
