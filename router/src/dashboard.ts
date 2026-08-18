@@ -63,6 +63,58 @@ function dailyBarChart(title: string, byDay: Stats["by_day"], values: number[], 
       </div>`;
 }
 
+// Cumulative line chart in the same card frame as the bar charts: an SVG
+// with normalized coordinates stretched over the 180px plot, so the
+// gridlines and y-axis stay identical to the bar variant.
+function cumulativeLineChart(title: string, byDay: Stats["by_day"], values: number[], color: string): string {
+  if (byDay.length === 0) {
+    return `
+      <div class="chart-card">
+        <div class="chart-head"><div class="mds-ui-mono-xs dimmer">${escapeHtml(title)}</div></div>
+        <p class="mds-body-sm empty">No requests yet.</p>
+      </div>`;
+  }
+
+  const max = Math.max(1, ...values);
+  const ticks = [max, Math.round((max * 2) / 3), Math.round(max / 3), 0];
+  const showEvery = Math.max(1, Math.ceil(byDay.length / 10));
+
+  const pt = (v: number, i: number): string => {
+    const x = values.length === 1 ? 50 : (i / (values.length - 1)) * 100;
+    const y = 100 - (v / max) * 100;
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  };
+  const points = values.length === 1 ? `0,${pt(values[0], 0).split(",")[1]} 100,${pt(values[0], 0).split(",")[1]}` : values.map(pt).join(" ");
+  const area = `0,100 ${points} 100,100`;
+
+  const labels = byDay
+    .map((d, i) => {
+      const text = i % showEvery === 0 || i === byDay.length - 1 ? escapeHtml(d.date.slice(5)) : "";
+      return `<span class="mds-mono-xs bar-label">${text}</span>`;
+    })
+    .join("");
+
+  return `
+      <div class="chart-card">
+        <div class="chart-head">
+          <div class="mds-ui-mono-xs dimmer">${escapeHtml(title)}</div>
+          <div class="mds-mono-xs dimmer">${max.toLocaleString("en-US")} to date</div>
+        </div>
+        <div class="chart-grid">
+          <div class="y-axis">${ticks.map((t) => `<span class="mds-mono-xs">${t}</span>`).join("")}</div>
+          <div>
+            <div class="plot">
+              <svg class="line-svg" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="${escapeHtml(title)}">
+                <polygon points="${area}" fill="${color}" opacity="0.12"/>
+                <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"/>
+              </svg>
+            </div>
+            <div class="x-axis">${labels}</div>
+          </div>
+        </div>
+      </div>`;
+}
+
 function modelRows(byModel: Stats["by_model"]): string {
   if (byModel.length === 0) {
     return `<p class="mds-body-sm empty" style="padding: 18px 24px;">No requests yet.</p>`;
@@ -175,6 +227,7 @@ export function renderDashboard(stats: Stats): string {
   }
   .bar-slot { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
   .bar { width: 100%; }
+  .line-svg { width: 100%; height: 100%; display: block; }
   .x-axis { display: flex; gap: 10px; margin-top: 10px; }
   .bar-label { flex: 1; min-width: 0; text-align: center; color: var(--fg-tertiary); overflow: hidden; }
   .empty { color: var(--fg-tertiary); }
@@ -243,7 +296,7 @@ export function renderDashboard(stats: Stats): string {
 </section>
 
 <section>
-  <div class="wrap chart-grid-outer">${dailyBarChart("Requests per day", stats.by_day, stats.by_day.map((d) => d.requests), "var(--accent)")}${dailyBarChart("Unique wallets per day", stats.by_day, stats.by_day.map((d) => d.unique_wallets), "var(--accent-soft)")}
+  <div class="wrap chart-grid-outer">${dailyBarChart("Requests per day", stats.by_day, stats.by_day.map((d) => d.requests), "var(--accent)")}${cumulativeLineChart("Unique wallets · cumulative", stats.by_day, stats.by_day.map((d) => d.cumulative_wallets), "#FFD199")}
   </div>
 </section>
 

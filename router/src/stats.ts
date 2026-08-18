@@ -49,7 +49,7 @@ export interface Stats {
   unattributed_volume_usd: number;
   unique_wallets: number;
   by_model: { model: string; count: number; volume_usd: number }[];
-  by_day: { date: string; requests: number; unique_wallets: number }[];
+  by_day: { date: string; requests: number; unique_wallets: number; cumulative_wallets: number }[];
 }
 
 function dayKey(iso: string): string {
@@ -61,11 +61,23 @@ function computeByDay(records: PaymentRecord[]): Stats["by_day"] {
 
   const walletsByDay = new Map<string, Set<string>>();
   const countByDay = new Map<string, number>();
+  // First day each wallet was ever seen — the basis for the cumulative
+  // distinct-wallet series. Summing daily uniques would overcount wallets
+  // active on more than one day.
+  const firstSeenDay = new Map<string, string>();
   for (const r of records) {
     const day = dayKey(r.ts);
     countByDay.set(day, (countByDay.get(day) ?? 0) + 1);
     if (!walletsByDay.has(day)) walletsByDay.set(day, new Set());
     walletsByDay.get(day)!.add(r.payer.toLowerCase());
+    const wallet = r.payer.toLowerCase();
+    const prev = firstSeenDay.get(wallet);
+    if (prev === undefined || day < prev) firstSeenDay.set(wallet, day);
+  }
+
+  const newWalletsByDay = new Map<string, number>();
+  for (const day of firstSeenDay.values()) {
+    newWalletsByDay.set(day, (newWalletsByDay.get(day) ?? 0) + 1);
   }
 
   const days = [...countByDay.keys()].sort();
@@ -73,12 +85,15 @@ function computeByDay(records: PaymentRecord[]): Stats["by_day"] {
   const last = new Date(days[days.length - 1] + "T00:00:00Z");
 
   const result: Stats["by_day"] = [];
+  let cumulative = 0;
   for (let d = new Date(first); d <= last; d.setUTCDate(d.getUTCDate() + 1)) {
     const key = d.toISOString().slice(0, 10);
+    cumulative += newWalletsByDay.get(key) ?? 0;
     result.push({
       date: key,
       requests: countByDay.get(key) ?? 0,
       unique_wallets: walletsByDay.get(key)?.size ?? 0,
+      cumulative_wallets: cumulative,
     });
   }
   return result;
