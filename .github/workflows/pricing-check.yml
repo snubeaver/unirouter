@@ -1,0 +1,76 @@
+name: Daily pricing check
+
+# Re-verifies upstream LLM API pricing every day and keeps
+# router/src/config.ts (and NOTES.md, on real changes) accurate.
+# Runs the same prompt as scripts/check-pricing.sh, headlessly, via the
+# Claude Code CLI — then commits any diff back to main.
+#
+# One-time setup required: add a `CLAUDE_CODE_OAUTH_TOKEN` repository secret
+# so the job authenticates against your Claude subscription (no API billing):
+#   claude setup-token          # generate the token locally (needs Claude Pro/Max)
+#   gh secret set CLAUDE_CODE_OAUTH_TOKEN   # paste it when prompted
+# (To use a metered API key instead, swap the env var below to
+#  ANTHROPIC_API_KEY and set that secret.)
+
+on:
+  schedule:
+    - cron: "0 8 * * *"   # 08:00 UTC daily
+  workflow_dispatch: {}    # allow manual runs from the Actions tab
+
+permissions:
+  contents: write          # needed to push the pricing commit
+
+concurrency:
+  group: pricing-check
+  cancel-in-progress: false
+
+jobs:
+  pricing-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run pricing check
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo "::error::CLAUDE_CODE_OAUTH_TOKEN secret is not set — run 'claude setup-token' then 'gh secret set CLAUDE_CODE_OAUTH_TOKEN'."
+            exit 1
+          fi
+          claude -p "$(cat scripts/pricing-check-prompt.txt)" \
+            --allowedTools "Read Edit WebFetch" \
+            --permission-mode acceptEdits \
+            --model sonnet \
+            --max-turns 40 \
+            2>&1 | tee pricing-check-run.log
+
+      - name: Commit pricing updates
+        run: |
+          # The prompt bumps price_verified_at daily, so config.ts normally
+          # changes every run; NOTES.md changes only when a real price moved.
+          if git diff --quiet -- router/src/config.ts NOTES.md; then
+            echo "No pricing changes to commit."
+            exit 0
+          fi
+          git config user.name "unirouter-pricing-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add router/src/config.ts NOTES.md
+          git commit -m "chore(pricing): daily verify $(date -u +%F)"
+          git push
+
+      - name: Upload run log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pricing-check-log
+          path: pricing-check-run.log
+          if-no-files-found: ignore

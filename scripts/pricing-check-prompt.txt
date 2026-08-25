@@ -1,9 +1,10 @@
-You are running as an unattended daily cron job for a personal project at
-/Users/thbeaver/inference-provider. Your only job: re-verify upstream LLM
-API pricing and keep router/src/config.ts accurate. You have Read, Edit,
-and WebFetch only — no Bash, no other files.
+You are running as an unattended daily job (local cron or GitHub Actions).
+All paths below are relative to the repository root, which is your current
+working directory. Your only job: re-verify upstream LLM API pricing and keep
+router/src/config.ts accurate. You have Read, Edit, and WebFetch only — no
+Bash, no other files.
 
-1. Read /Users/thbeaver/inference-provider/router/src/config.ts. Note every
+1. Read router/src/config.ts. Note every
    UpstreamEntry's `id`, `cost.prompt`, `cost.completion`, and
    `price_verified_at`.
 
@@ -41,8 +42,7 @@ and WebFetch only — no Bash, no other files.
    checked, not skipped).
 
 8. If (and only if) at least one entry's cost actually changed in step 6,
-   append a new dated section to the end of
-   /Users/thbeaver/inference-provider/NOTES.md titled
+   append a new dated section to the end of NOTES.md titled
    "## Pricing check YYYY-MM-DD" listing exactly which model id(s) changed,
    old price -> new price, and the source URL. If nothing changed, do NOT
    touch NOTES.md — this job runs daily and silent no-op days should stay
