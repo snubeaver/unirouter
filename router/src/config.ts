@@ -200,8 +200,8 @@ export const UPSTREAMS: UpstreamEntry[] = [
     kill_switch: "DEEPSEEK_API_KEY",
     rate_limit_rpm: 60,
     context_length: 1_000_000,
-    cost: { prompt: "0.00000014", completion: "0.00000028" },
-    price_verified_at: "2026-08-11",
+    cost: { prompt: "0.00000044", completion: "0.00000132" },
+    price_verified_at: "2026-08-25",
   },
   {
     id: "deepseek-v4-pro",
@@ -212,8 +212,8 @@ export const UPSTREAMS: UpstreamEntry[] = [
     kill_switch: "DEEPSEEK_API_KEY",
     rate_limit_rpm: 60,
     context_length: 1_000_000,
-    cost: { prompt: "0.000000435", completion: "0.00000087" },
-    price_verified_at: "2026-08-11",
+    cost: { prompt: "0.00000132", completion: "0.00000396" },
+    price_verified_at: "2026-08-25",
   },
   // Chinese open models via OpenRouter (decided against NVIDIA's beta-free
   // catalog for these — OpenRouter is already OpenAI-compatible with a
