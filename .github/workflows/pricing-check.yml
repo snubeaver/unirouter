@@ -56,14 +56,16 @@ jobs:
       - name: Commit pricing updates
         run: |
           # The prompt bumps price_verified_at daily, so config.ts normally
-          # changes every run; NOTES.md changes only when a real price moved.
-          if git diff --quiet -- router/src/config.ts NOTES.md; then
+          # changes every run. NOTES.md is gitignored (local-only dev journal),
+          # so we never commit it — the config.ts diff + git history is the
+          # audit trail for any real price change.
+          if git diff --quiet -- router/src/config.ts; then
             echo "No pricing changes to commit."
             exit 0
           fi
           git config user.name "unirouter-pricing-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add router/src/config.ts NOTES.md
+          git add router/src/config.ts
           git commit -m "chore(pricing): daily verify $(date -u +%F)"
           git push
 
