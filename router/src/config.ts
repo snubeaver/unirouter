@@ -125,7 +125,7 @@ export const UPSTREAMS: UpstreamEntry[] = [
     rate_limit_rpm: 60,
     context_length: 1_050_000,
     cost: { prompt: "0.000005", completion: "0.00003" },
-    price_verified_at: "2026-09-06",
+    price_verified_at: "2026-09-07",
   },
   {
     id: "gpt-5.1",
@@ -137,7 +137,7 @@ export const UPSTREAMS: UpstreamEntry[] = [
     rate_limit_rpm: 60,
     context_length: 400_000,
     cost: { prompt: "0.00000125", completion: "0.00001" },
-    price_verified_at: "2026-09-06",
+    price_verified_at: "2026-09-07",
   },
   {
     id: "gpt-5-mini",
@@ -149,7 +149,7 @@ export const UPSTREAMS: UpstreamEntry[] = [
     rate_limit_rpm: 60,
     context_length: 400_000,
     cost: { prompt: "0.00000025", completion: "0.000002" },
-    price_verified_at: "2026-09-06",
+    price_verified_at: "2026-09-07",
   },
   {
     id: "claude-opus-5",
@@ -160,11 +160,11 @@ export const UPSTREAMS: UpstreamEntry[] = [
     rate_limit_rpm: 60,
     context_length: 1_000_000,
     cost: { prompt: "0.000005", completion: "0.000025" },
-    price_verified_at: "2026-09-06",
+    price_verified_at: "2026-09-07",
   },
   {
-    // Introductory pricing ($2/$10) through 2026-08-31, then $3/$15 —
-    // exactly the kind of change the daily pricing-check job exists to catch.
+    // Anthropic announced on 2026-09-07 that the planned 2026-09-01 increase
+    // to $3/$15 will NOT occur; the $2/$10 introductory rate is now standard.
     id: "claude-sonnet-5",
     tier: "paid",
     provider: "anthropic-native",
@@ -173,7 +173,7 @@ export const UPSTREAMS: UpstreamEntry[] = [
     rate_limit_rpm: 60,
     context_length: 1_000_000,
     cost: { prompt: "0.000002", completion: "0.00001" },
-    price_verified_at: "2026-09-06",
+    price_verified_at: "2026-09-07",
   },
   {
     id: "claude-haiku-4-5-20251001",
@@ -184,7 +184,7 @@ export const UPSTREAMS: UpstreamEntry[] = [
     rate_limit_rpm: 60,
     context_length: 200_000,
     cost: { prompt: "0.000001", completion: "0.000005" },
-    price_verified_at: "2026-09-06",
+    price_verified_at: "2026-09-07",
   },
   // DeepSeek direct — real cost pass-through. Their API uses "/chat/completions",
   // not the "/v1/chat/completions" every other upstream here uses. Input
