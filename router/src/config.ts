@@ -125,7 +125,7 @@ export const UPSTREAMS: UpstreamEntry[] = [
     rate_limit_rpm: 60,
     context_length: 1_050_000,
     cost: { prompt: "0.000005", completion: "0.00003" },
-    price_verified_at: "2026-09-21",
+    price_verified_at: "2026-09-22",
   },
   {
     id: "gpt-5.1",
@@ -137,7 +137,7 @@ export const UPSTREAMS: UpstreamEntry[] = [
     rate_limit_rpm: 60,
     context_length: 400_000,
     cost: { prompt: "0.00000125", completion: "0.00001" },
-    price_verified_at: "2026-09-21",
+    price_verified_at: "2026-09-22",
   },
   {
     id: "gpt-5-mini",
@@ -149,7 +149,7 @@ export const UPSTREAMS: UpstreamEntry[] = [
     rate_limit_rpm: 60,
     context_length: 400_000,
     cost: { prompt: "0.00000025", completion: "0.000002" },
-    price_verified_at: "2026-09-21",
+    price_verified_at: "2026-09-22",
   },
   {
     id: "claude-opus-5",
@@ -160,7 +160,7 @@ export const UPSTREAMS: UpstreamEntry[] = [
     rate_limit_rpm: 60,
     context_length: 1_000_000,
     cost: { prompt: "0.000005", completion: "0.000025" },
-    price_verified_at: "2026-09-21",
+    price_verified_at: "2026-09-22",
   },
   {
     // Anthropic announced on 2026-09-07 that the planned 2026-09-01 increase
@@ -173,7 +173,7 @@ export const UPSTREAMS: UpstreamEntry[] = [
     rate_limit_rpm: 60,
     context_length: 1_000_000,
     cost: { prompt: "0.000002", completion: "0.00001" },
-    price_verified_at: "2026-09-21",
+    price_verified_at: "2026-09-22",
   },
   {
     id: "claude-haiku-4-5-20251001",
@@ -184,7 +184,7 @@ export const UPSTREAMS: UpstreamEntry[] = [
     rate_limit_rpm: 60,
     context_length: 200_000,
     cost: { prompt: "0.000001", completion: "0.000005" },
-    price_verified_at: "2026-09-21",
+    price_verified_at: "2026-09-22",
   },
   // DeepSeek direct — real cost pass-through. Their API uses "/chat/completions",
   // not the "/v1/chat/completions" every other upstream here uses. Input
@@ -212,8 +212,8 @@ export const UPSTREAMS: UpstreamEntry[] = [
     kill_switch: "DEEPSEEK_API_KEY",
     rate_limit_rpm: 60,
     context_length: 1_000_000,
-    cost: { prompt: "0.00000132", completion: "0.00000396" },
-    price_verified_at: "2026-09-21",
+    cost: { prompt: "0.00000066", completion: "0.00000198" },
+    price_verified_at: "2026-09-22",
   },
   // Chinese open models via OpenRouter (decided against NVIDIA's beta-free
   // catalog for these — OpenRouter is already OpenAI-compatible with a
